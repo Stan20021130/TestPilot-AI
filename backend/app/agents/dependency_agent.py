@@ -44,20 +44,14 @@ def dependency_agent_node(state: AgentState) -> dict[str, Any]:
             duration_ms=int(duration * 1000),
         )
 
-        completed = list(state.get("completed_agents", []))
-        completed.append("dependency_agent")
-
         return {
             "dependency_graph_edges": edges,
-            "completed_agents": completed,
-            "current_agent": "dependency_agent",
+            "completed_agents": ["dependency_agent"],
         }
 
     except Exception as e:
         logger.exception("Dependency agent failed", error=str(e))
-        errors = list(state.get("errors", []))
-        errors.append(f"dependency_agent: {e}")
-        return {"errors": errors, "dependency_graph_edges": []}
+        return {"errors": [f"dependency_agent: {e}"], "dependency_graph_edges": []}
 
 
 async def _load_dependency_edges(repository_id: str) -> list[dict[str, str]]:

@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     db_pool_timeout: int = Field(default=30)
     db_pool_recycle: int = Field(default=3600)
     db_echo: bool = Field(default=False)
+    # Falling back to a local SQLite file when PostgreSQL is unreachable hides
+    # misconfiguration and writes data to the wrong store. Off by default.
+    allow_sqlite_fallback: bool = Field(default=False)
 
     # --------------------------------------------------------------------------
     # Redis
@@ -139,9 +142,13 @@ class Settings(BaseSettings):
     # LiteLLM / AI
     # --------------------------------------------------------------------------
     openai_api_key: str = Field(default="sk-placeholder")
+    openai_api_base: str = Field(
+        default="http://127.0.0.1:8788/v1",
+        description="OpenAI API Base URL for local/custom endpoints",
+    )
     gemini_api_key: str = Field(default="", description="Google Gemini API key")
-    litellm_default_model: str = Field(default="gemini/gemini-2.0-flash")
-    litellm_fallback_model: str = Field(default="gemini/gemini-1.5-flash")
+    litellm_default_model: str = Field(default="openai/hy4free")
+    litellm_fallback_model: str = Field(default="openai/hy4free")
     litellm_embedding_model: str = Field(default="text-embedding-3-small")
     ollama_host: str = Field(default="http://localhost:11434")
     anthropic_api_key: str = Field(default="")
@@ -152,7 +159,7 @@ class Settings(BaseSettings):
 
     # LLM settings
     llm_temperature: float = Field(default=0.0)
-    llm_max_tokens: int = Field(default=4096)
+    llm_max_tokens: int = Field(default=8192)
     llm_timeout: int = Field(default=120)
     llm_max_retries: int = Field(default=3)
 
@@ -160,6 +167,9 @@ class Settings(BaseSettings):
     # Repository Storage
     # --------------------------------------------------------------------------
     repo_storage_path: Path = Field(default=Path("/tmp/repos"))
+    # Optional PAT used to fetch PR refs of private repositories for the
+    # per-run head checkout. Public repositories work without it.
+    github_token: str | None = Field(default=None)
     max_repo_size_mb: int = Field(default=500)
 
     # Files/directories to ignore during indexing
@@ -192,6 +202,48 @@ class Settings(BaseSettings):
     test_execution_timeout_seconds: int = Field(default=300)
     test_execution_max_parallel: int = Field(default=4)
     coverage_threshold: float = Field(default=80.0)
+    # Run only the existing tests that cover the changed modules (plus the
+    # generated tests) instead of the whole suite. Falls back to a full run
+    # when no covering test can be resolved.
+    test_selection_enabled: bool = Field(default=True)
+    max_selected_test_files: int = Field(default=200)
+    # Generation budget: total generation passes per PR (1 = single shot), and
+    # focused top-up passes for critical targets that received no test.
+    max_generation_attempts: int = Field(default=2)
+    max_coverage_topups: int = Field(default=1)
+    # Feedback-loop budgets: repair-verify rounds, and red-team mutation rounds
+    # per PR (0 disables the mutation arena).
+    max_repair_attempts: int = Field(default=2)
+    max_mutation_attempts: int = Field(default=1)
+    # Global cap on verify rounds (one round = one execution). The per-action
+    # allowances above are sub-budgets inside this loop; this is the backstop.
+    max_verify_rounds: int = Field(default=3)
+    # Step cap for the verify engine controller.
+    verify_max_steps: int = Field(default=6)
+
+    # --------------------------------------------------------------------------
+    # Execution Sandbox
+    # --------------------------------------------------------------------------
+    # "subprocess": scrubbed env + POSIX resource limits (default)
+    # "docker": run inside a container with --network=none (requires a daemon)
+    sandbox_mode: str = Field(default="subprocess")
+    sandbox_memory_mb: int = Field(default=2048)
+    sandbox_cpu_seconds: int = Field(default=300)
+    sandbox_docker_image: str = Field(default="python:3.12-slim")
+    # Hard ceiling for a single PR analysis to hold the repository lock.
+    repository_lock_timeout_seconds: int = Field(default=900)
+
+    # --------------------------------------------------------------------------
+    # Analysis Checkpointing
+    # --------------------------------------------------------------------------
+    # "memory": in-process only (dev/tests, no cross-process resume)
+    # "postgres": durable checkpoints in the application database
+    # "off": no checkpointer
+    checkpoint_backend: str = Field(default="memory")
+    # Optional libpq DSN; defaults to DATABASE_URL with the async driver stripped.
+    checkpoint_dsn: str | None = Field(default=None)
+    # Finished threads are deleted after this many days (Postgres backend only).
+    checkpoint_retention_days: int = Field(default=7)
 
     # --------------------------------------------------------------------------
     # Observability
@@ -219,6 +271,16 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development."""
         return self.app_env == "development"
+
+    @model_validator(mode="after")
+    def sync_llm_environment(self) -> Self:
+        """Sync OpenAI / LiteLLM environment variables."""
+        import os
+        if self.openai_api_base:
+            os.environ["OPENAI_API_BASE"] = self.openai_api_base
+        if self.openai_api_key:
+            os.environ["OPENAI_API_KEY"] = self.openai_api_key
+        return self
 
     @model_validator(mode="after")
     def validate_production_secrets(self) -> Self:

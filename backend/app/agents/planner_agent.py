@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.agents.state import AgentState
+from app.agents.state import AgentState, decision
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -42,7 +42,14 @@ def planner_agent_node(state: AgentState) -> dict[str, Any]:
             "errors": [f"Missing required fields: {', '.join(missing)}"],
             "should_stop": True,
             "completed_agents": ["planner_agent"],
-            "current_agent": "planner_agent",
+            "decisions": [
+                decision(
+                    "planner_agent",
+                    "stop",
+                    f"missing required inputs: {', '.join(missing)}",
+                    inputs={"missing": missing},
+                )
+            ],
         }
 
     logger.info("Planner agent: all pre-conditions met, starting pipeline")
@@ -52,7 +59,7 @@ def planner_agent_node(state: AgentState) -> dict[str, Any]:
         "retry_count": 0,
         "should_stop": False,
         "completed_agents": ["planner_agent"],
-        "current_agent": "planner_agent",
+        "decisions": [decision("planner_agent", "proceed", "all pre-conditions met")],
     }
 
 
@@ -87,11 +94,7 @@ def documentation_agent_node(state: AgentState) -> dict[str, Any]:
             }
         )
 
-    completed = list(state.get("completed_agents", []))
-    completed.append("documentation_agent")
-
     return {
         "documentation_updates": doc_updates,
-        "completed_agents": completed,
-        "current_agent": "documentation_agent",
+        "completed_agents": ["documentation_agent"],
     }

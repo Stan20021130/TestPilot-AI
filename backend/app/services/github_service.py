@@ -25,6 +25,7 @@ from github.Repository import Repository as GithubRepo
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.schemas.pull_request import ChangedFile, DiffSummary
+from app.utils.patch_parser import parse_added_lines
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -332,6 +333,9 @@ class GitHubService:
                     additions=file.additions,
                     deletions=file.deletions,
                     old_path=file.previous_filename,
+                    # Hunk headers give us the touched line ranges so that
+                    # downstream agents can filter at symbol granularity.
+                    changed_lines=parse_added_lines(getattr(file, "patch", None)),
                 )
             )
             # Detect language from file extension

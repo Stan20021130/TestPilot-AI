@@ -128,11 +128,12 @@ async def test_user(db_session: AsyncSession):
 
     from app.models.user import User
 
+    token = uuid.uuid4().hex
     user = User(
         id=str(uuid.uuid4()),
-        github_id="12345",
-        username="test_user",
-        email="test@example.com",
+        github_id=token[:12],
+        username=f"test_user_{token[:8]}",
+        email=f"{token[:8]}@example.com",
         name="Test User",
         role="member",
     )
@@ -148,14 +149,15 @@ async def test_repository(db_session: AsyncSession, test_user):
 
     from app.models.repository import Repository
 
+    token = uuid.uuid4().hex
     repo = Repository(
         id=str(uuid.uuid4()),
         owner_id=test_user.id,
-        github_repo_id="99999",
-        full_name="test-owner/test-repo",
-        name="test-repo",
+        github_repo_id=token[:12],
+        full_name=f"test-owner/test-repo-{token[:8]}",
+        name=f"test-repo-{token[:8]}",
         owner_login="test-owner",
-        clone_url="https://github.com/test-owner/test-repo.git",
+        clone_url=f"https://github.com/test-owner/test-repo-{token[:8]}.git",
         default_branch="main",
         index_status="indexed",
         is_indexed=True,
@@ -176,7 +178,7 @@ async def test_pull_request(db_session: AsyncSession, test_repository):
         id=str(uuid.uuid4()),
         repository_id=test_repository.id,
         pr_number=42,
-        github_pr_id="99998",
+        github_pr_id=uuid.uuid4().hex[:12],
         title="Test PR: Add payment service",
         state="open",
         author="test-dev",

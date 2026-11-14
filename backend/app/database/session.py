@@ -29,9 +29,16 @@ settings = get_settings()
 
 
 def _create_engine_with_fallback() -> AsyncEngine:
+    """Create the async engine, refusing to silently degrade in production.
+
+    Falling back to a local SQLite file when PostgreSQL is unreachable turns a
+    configuration error into silent data loss: the API stays "healthy" while
+    writing to a throwaway file. The fallback is therefore opt-in.
+    """
+    if "sqlite" in settings.database_url:
+        return create_async_engine(settings.database_url, echo=settings.db_echo)
+
     try:
-        if "sqlite" in settings.database_url:
-            return create_async_engine(settings.database_url, echo=settings.db_echo)
         return create_async_engine(
             settings.database_url,
             echo=settings.db_echo,
@@ -48,8 +55,17 @@ def _create_engine_with_fallback() -> AsyncEngine:
             },
         )
     except Exception as e:
+        if not settings.allow_sqlite_fallback:
+            logger.error(
+                "Database engine initialization failed; refusing SQLite fallback",
+                error=str(e),
+                hint="set ALLOW_SQLITE_FALLBACK=true for local development only",
+            )
+            raise
         logger.warning(
-            "Failed to initialize PostgreSQL engine, falling back to SQLite", error=str(e)
+            "Failed to initialize PostgreSQL engine, falling back to SQLite "
+            "(ALLOW_SQLITE_FALLBACK is enabled)",
+            error=str(e),
         )
         return create_async_engine("sqlite+aiosqlite:///./testpilot.db", echo=False)
 

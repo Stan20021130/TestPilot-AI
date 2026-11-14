@@ -14,6 +14,7 @@ Configures:
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -114,9 +115,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     REDIS_QUEUE_DEPTH.set(0)
     AGENT_SUCCESS_RATE.set(100.0)
 
-    # Ensure database schema has provider column
-    await _ensure_db_columns()
-
+    # Schema is owned by Alembic only: no runtime DDL here.
     # Initialize Qdrant collections
     await _initialize_qdrant()
 
@@ -125,27 +124,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     logger.info("Shutting down TestPilot AI")
-
-
-async def _ensure_db_columns() -> None:
-    """Ensure database schema migration for VCS provider support."""
-    try:
-        from sqlalchemy import text
-
-        from app.database.session import AsyncSessionLocal
-
-        async with AsyncSessionLocal() as db:
-            await db.execute(
-                text(
-                    "ALTER TABLE repositories ADD COLUMN IF NOT EXISTS provider VARCHAR DEFAULT 'github';"
-                )
-            )
-            await db.execute(
-                text("ALTER TABLE repositories ADD COLUMN IF NOT EXISTS provider_repo_id VARCHAR;")
-            )
-            await db.commit()
-    except Exception as e:
-        logger.warning("DB column migration check non-fatal warning", error=str(e))
 
 
 # ==============================================================================
@@ -256,14 +234,21 @@ def create_app() -> FastAPI:
     # Health check
     # --------------------------------------------------------------------------
     @app.get("/health", tags=["System"])
-    async def health_check() -> dict[str, object]:
-        """Service health check endpoint."""
-        return HealthResponse(
-            status="healthy",
+    async def health_check() -> Response:
+        """Service health check endpoint.
+
+        Returns 503 when a dependency is unhealthy so load balancers and
+        orchestrators stop routing traffic to a broken instance.
+        """
+        services = await _check_services()
+        healthy = all(state == "healthy" for state in services.values())
+        payload = HealthResponse(
+            status="healthy" if healthy else "degraded",
             version=settings.app_version,
             environment=settings.app_env,
-            services=await _check_services(),
+            services=services,
         ).model_dump()
+        return JSONResponse(status_code=200 if healthy else 503, content=payload)
 
     # --------------------------------------------------------------------------
     # Prometheus metrics endpoint
@@ -325,10 +310,10 @@ async def _check_services() -> dict[str, str]:
     except Exception:
         services["redis"] = "unhealthy"
 
-    # Qdrant
+    # Qdrant (sync client: keep it off the event loop)
     try:
         qdrant = get_qdrant_client()
-        qdrant.get_collections()
+        await asyncio.to_thread(qdrant.get_collections)
         services["qdrant"] = "healthy"
     except Exception:
         services["qdrant"] = "unhealthy"

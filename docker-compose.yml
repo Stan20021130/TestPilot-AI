@@ -78,6 +78,10 @@ services:
   celery-worker:
     <<: *backend-common
     container_name: testpilot-celery-worker
+    # Durable checkpoints let a retried PR analysis resume instead of paying
+    # for every LLM stage twice. Falls back to memory if the driver is absent.
+    environment:
+      CHECKPOINT_BACKEND: postgres
     command: >
       celery -A app.workers.celery_app worker
       --loglevel=info

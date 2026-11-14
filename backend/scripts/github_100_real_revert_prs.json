@@ -1,0 +1,1322 @@
+[
+  {
+    "id": "RPR-001",
+    "repo": "click",
+    "commit": "90a2973f85fffc4d8a20effb2bcdff3f394c5e62",
+    "short_commit": "90a2973f",
+    "title": "Add `context_settings` parameter to `CliRunner.invoke`",
+    "author": "Kevin Deldycke",
+    "date": "2026-10-26",
+    "files": [
+      "src/click/testing.py"
+    ],
+    "diff": "diff --git a/src/click/testing.py b/src/click/testing.py\nindex 6608165..b2b909c 100644\n--- a/src/click/testing.py\n+++ b/src/click/testing.py\n@@ -631,6 +631,7 @@ class CliRunner:\n         env: cabc.Mapping[str, str | None] | None = None,\n         catch_exceptions: bool | None = None,\n         color: bool = False,\n+        context_settings: cabc.Mapping[str, t.Any] | None = None,\n         **extra: t.Any,\n     ) -> Result:\n         \"\"\"Invokes a command in an isolated environment.  The arguments are\n@@ -653,6 +654,14 @@ class CliRunner:\n         :param extra: the keyword arguments to pass to :meth:`main`.\n         :param color: whether the output should contain color codes. The\n                       application can still override this explicitly.\n+        :param context_settings: settings to pass to the\n+            :class:`~click.Context` of the command. They take precedence\n+            over the ``context_settings`` of the command. Unlike ``extra``,\n+            they can hold a setting named like a parameter of this method,\n+            such as ``color``.\n+\n+        .. versionchanged:: 8.6.0\n+            Added the ``context_settings`` parameter.\n \n         .. versionadded:: 8.2\n             The result object has the ``output_bytes`` attribute with\n@@ -714,7 +723,12 @@ class CliRunner:\n                 prog_name = self.get_default_prog_name(cli)\n \n             try:\n-                return_value = cli.main(args=args or (), prog_name=prog_name, **extra)\n+                return_value = cli.main(\n+                    args=args or (),\n+                    prog_name=prog_name,\n+                    **extra,\n+                    **(context_settings or {}),\n+                )\n             except SystemExit as e:\n                 exc_info = sys.exc_info()\n                 e_code = t.cast(\"int | t.Any | None\", e.code)\n"
+  },
+  {
+    "id": "RPR-002",
+    "repo": "click",
+    "commit": "70689853e39c30e36eb0d83d586cc914a74db9d3",
+    "short_commit": "70689853",
+    "title": "Fix short help abbreviation (#3865)",
+    "author": "Rowlando13",
+    "date": "2026-09-11",
+    "files": [
+      "src/click/utils.py"
+    ],
+    "diff": "diff --git a/src/click/utils.py b/src/click/utils.py\nindex b529eb0..617ff5e 100644\n--- a/src/click/utils.py\n+++ b/src/click/utils.py\n@@ -64,52 +64,40 @@ def _make_default_short_help(help: str, max_length: int = 45) -> str:\n \n     :meta private:\n     \"\"\"\n-    # Consider only the first paragraph.\n-    paragraph_end = help.find(\"\\n\\n\")\n+    # Consider only the first paragraph and collapse newlines, tabs and spaces.\n+    words = help.partition(\"\\n\\n\")[0].split()\n \n-    if paragraph_end != -1:\n-        help = help[:paragraph_end]\n-\n-    # Collapse newlines, tabs, and spaces.\n-    words = help.split()\n+    # The first paragraph started with a \"no rewrap\" marker, ignore it.\n+    if words and words[0] == \"\\b\":\n+        words = words[1:]\n \n     if not words:\n         return \"\"\n \n-    # The first paragraph started with a \"no rewrap\" marker, ignore it.\n-    if words[0] == \"\\b\":\n-        words = words[1:]\n-\n-    total_length = 0\n     last_index = len(words) - 1\n \n+    # A period ends a sentence when it closes the text, or when the next word\n+    # does not start in lowercase. A lowercase word continues the sentence, so\n+    # the period belongs to an abbreviation such as \"vs.\".\n     for i, word in enumerate(words):\n-        total_length += len(word) + (i > 0)\n-\n-        if total_length > max_length:  # too long, truncate\n+        if word.endswith(\".\") and (i == last_index or not words[i + 1][0].islower()):\n+            words = words[: i + 1]\n             break\n \n-        if word[-1] == \".\":  # sentence end, truncate without \"...\"\n-            return \" \".join(words[: i + 1])\n-\n-        if total_length == max_length and i != last_index:\n-            break  # not at sentence end, truncate with \"...\"\n-    else:\n-        return \" \".join(words)  # no truncation needed\n+    text = \" \".join(words)\n \n-    # Account for the length of the suffix.\n-    total_length += len(\"...\")\n+    if len(text) <= max_length:\n+        return text\n \n-    # remove words until the length is short enough\n-    while i > 0:\n-        total_length -= len(words[i]) + (i > 0)\n-\n-        if total_length <= max_length:\n-            break\n+    # The suffix alone does not fit, and shorten() rejects such a width.\n+    if max_length < len(\"...\"):\n+        return \"...\"\n \n-        i -= 1\n+    # Imported late to keep the import footprint small.\n+    import textwrap\n \n-    return \" \".join(words[:i]) + \"...\"\n+    # Do not split hyphenated words.\n+    return textwrap.shorten(text, max_length, placeholder=\"...\", break_on_hyphens=False)\n \n \n class _LazyFile:\n"
+  },
+  {
+    "id": "RPR-003",
+    "repo": "click",
+    "commit": "f67c2bb6c2f055c1c7a57cd46c3697fc26a7742e",
+    "short_commit": "f67c2bb6",
+    "title": "Fix short help abbreviation",
+    "author": "Kevin Deldycke",
+    "date": "2026-09-11",
+    "files": [
+      "src/click/utils.py"
+    ],
+    "diff": "diff --git a/src/click/utils.py b/src/click/utils.py\nindex b529eb0..617ff5e 100644\n--- a/src/click/utils.py\n+++ b/src/click/utils.py\n@@ -64,52 +64,40 @@ def _make_default_short_help(help: str, max_length: int = 45) -> str:\n \n     :meta private:\n     \"\"\"\n-    # Consider only the first paragraph.\n-    paragraph_end = help.find(\"\\n\\n\")\n+    # Consider only the first paragraph and collapse newlines, tabs and spaces.\n+    words = help.partition(\"\\n\\n\")[0].split()\n \n-    if paragraph_end != -1:\n-        help = help[:paragraph_end]\n-\n-    # Collapse newlines, tabs, and spaces.\n-    words = help.split()\n+    # The first paragraph started with a \"no rewrap\" marker, ignore it.\n+    if words and words[0] == \"\\b\":\n+        words = words[1:]\n \n     if not words:\n         return \"\"\n \n-    # The first paragraph started with a \"no rewrap\" marker, ignore it.\n-    if words[0] == \"\\b\":\n-        words = words[1:]\n-\n-    total_length = 0\n     last_index = len(words) - 1\n \n+    # A period ends a sentence when it closes the text, or when the next word\n+    # does not start in lowercase. A lowercase word continues the sentence, so\n+    # the period belongs to an abbreviation such as \"vs.\".\n     for i, word in enumerate(words):\n-        total_length += len(word) + (i > 0)\n-\n-        if total_length > max_length:  # too long, truncate\n+        if word.endswith(\".\") and (i == last_index or not words[i + 1][0].islower()):\n+            words = words[: i + 1]\n             break\n \n-        if word[-1] == \".\":  # sentence end, truncate without \"...\"\n-            return \" \".join(words[: i + 1])\n-\n-        if total_length == max_length and i != last_index:\n-            break  # not at sentence end, truncate with \"...\"\n-    else:\n-        return \" \".join(words)  # no truncation needed\n+    text = \" \".join(words)\n \n-    # Account for the length of the suffix.\n-    total_length += len(\"...\")\n+    if len(text) <= max_length:\n+        return text\n \n-    # remove words until the length is short enough\n-    while i > 0:\n-        total_length -= len(words[i]) + (i > 0)\n-\n-        if total_length <= max_length:\n-            break\n+    # The suffix alone does not fit, and shorten() rejects such a width.\n+    if max_length < len(\"...\"):\n+        return \"...\"\n \n-        i -= 1\n+    # Imported late to keep the import footprint small.\n+    import textwrap\n \n-    return \" \".join(words[:i]) + \"...\"\n+    # Do not split hyphenated words.\n+    return textwrap.shorten(text, max_length, placeholder=\"...\", break_on_hyphens=False)\n \n \n class _LazyFile:\n"
+  },
+  {
+    "id": "RPR-004",
+    "repo": "click",
+    "commit": "22177f857a34e3c35ba957553853a37f23feb37e",
+    "short_commit": "22177f85",
+    "title": "`path_type` narrows the converted value's type for `convert` and `prompt`",
+    "author": "Kevin Deldycke",
+    "date": "2026-09-08",
+    "files": [
+      "src/click/types.py"
+    ],
+    "diff": "diff --git a/src/click/types.py b/src/click/types.py\nindex 0eb8462..b6e98a9 100644\n--- a/src/click/types.py\n+++ b/src/click/types.py\n@@ -45,6 +45,17 @@ else:\n _FloatValueT = t.TypeVar(\"_FloatValueT\", bound=float)\n _FloatValueT_co = t.TypeVar(\"_FloatValueT_co\", bound=float, covariant=True)\n \n+if t.TYPE_CHECKING:\n+    _PathT_co = te.TypeVar(\n+        \"_PathT_co\", covariant=True, default=\"str | bytes | os.PathLike[str]\"\n+    )\n+elif sys.version_info >= (3, 13):\n+    _PathT_co = t.TypeVar(\n+        \"_PathT_co\", covariant=True, default=str | bytes | os.PathLike[str]\n+    )\n+else:\n+    _PathT_co = t.TypeVar(\"_PathT_co\", covariant=True)\n+\n \n class ParamTypeInfoDict(t.TypedDict):\n     param_type: str\n@@ -1045,7 +1056,7 @@ class PathInfoDict(ParamTypeInfoDict):\n     allow_dash: bool\n \n \n-class Path(ParamType[str | bytes | os.PathLike[str]]):\n+class Path(ParamType[_PathT_co, str | os.PathLike[str]], t.Generic[_PathT_co]):\n     \"\"\"The ``Path`` type is similar to the :class:`File` type, but\n     returns the filename instead of an open file. Various checks can be\n     enabled to validate the type of file and permissions.\n@@ -1068,6 +1079,9 @@ class Path(ParamType[str | bytes | os.PathLike[str]]):\n         ``None``, keep Python's default, which is ``str``. Useful to\n         convert to :class:`pathlib.Path`.\n \n+    .. versionchanged:: 8.5.1\n+        Reveal the actual type of the value as converted from raw input.\n+\n     .. versionchanged:: 8.1\n         Added the ``executable`` parameter.\n \n@@ -1099,7 +1113,7 @@ class Path(ParamType[str | bytes | os.PathLike[str]]):\n         readable: bool = True,\n         resolve_path: bool = False,\n         allow_dash: bool = False,\n-        path_type: type | None = None,\n+        path_type: type[_PathT_co] | None = None,\n         executable: bool = False,\n     ) -> None:\n         self.exists = exists\n@@ -1110,7 +1124,7 @@ class Path(ParamType[str | bytes | os.PathLike[str]]):\n         self.executable = executable\n         self.resolve_path = resolve_path\n         self.allow_dash = allow_dash\n-        self.type: type | None = path_type\n+        self.type: type[_PathT_co] | None = path_type\n \n         if self.file_okay and not self.dir_okay:\n             self.name = _(\"file\")\n@@ -1130,25 +1144,26 @@ class Path(ParamType[str | bytes | os.PathLike[str]]):\n             **super().to_info_dict(),\n         }\n \n-    def coerce_path_result(\n-        self, value: str | os.PathLike[str]\n-    ) -> str | bytes | os.PathLike[str]:\n-        if self.type is not None and not isinstance(value, self.type):\n-            if self.type is str:\n-                return os.fsdecode(value)\n-            elif self.type is bytes:\n-                return os.fsencode(value)\n+    def coerce_path_result(self, value: str | os.PathLike[str]) -> _PathT_co:\n+        path_type: type[t.Any] | None = self.type\n+        rv: t.Any = value\n+\n+        if path_type is not None and not isinstance(value, path_type):\n+            if path_type is str:\n+                rv = os.fsdecode(value)\n+            elif path_type is bytes:\n+                rv = os.fsencode(value)\n             else:\n-                return t.cast(\"os.PathLike[str]\", self.type(value))\n+                rv = path_type(value)\n \n-        return value\n+        return t.cast(\"_PathT_co\", rv)\n \n     def convert(\n         self,\n         value: str | os.PathLike[str],\n         param: Parameter | None,\n         ctx: Context | None,\n-    ) -> str | bytes | os.PathLike[str]:\n+    ) -> _PathT_co:\n         rv = value\n \n         dash = b\"-\" if isinstance(rv, bytes) else \"-\"\n"
+  },
+  {
+    "id": "RPR-005",
+    "repo": "click",
+    "commit": "4295457ddc7b5ca9a733d59ca40d9651b02b9b1d",
+    "short_commit": "4295457d",
+    "title": "Fix `copy`, `deepcopy` and `pickle` of `Sentinel` members (#3805)",
+    "author": "Rowlando13",
+    "date": "2026-08-29",
+    "files": [
+      "src/click/_utils.py"
+    ],
+    "diff": "diff --git a/src/click/_utils.py b/src/click/_utils.py\nindex 05ee2e9..2d4e8f2 100644\n--- a/src/click/_utils.py\n+++ b/src/click/_utils.py\n@@ -18,6 +18,15 @@ class Sentinel(enum.Enum):\n     def __repr__(self) -> str:\n         return f\"{self.__class__.__name__}.{self.name}\"\n \n+    def __copy__(self) -> Sentinel:\n+        return self\n+\n+    def __deepcopy__(self, memo: dict[int, t.Any]) -> Sentinel:\n+        return self\n+\n+    def __reduce_ex__(self, protocol: object) -> tuple[t.Any, ...]:\n+        return getattr, (self.__class__, self.name)\n+\n \n UNSET: t.Literal[Sentinel.UNSET] = Sentinel.UNSET\n \"\"\"Sentinel used to indicate that a value is not set.\"\"\"\n"
+  },
+  {
+    "id": "RPR-006",
+    "repo": "click",
+    "commit": "f58ca3e81424a35626c8a475eb59ab95589008ce",
+    "short_commit": "f58ca3e8",
+    "title": "Fix `copy`, `deepcopy` and `pickle` of `Sentinel` members",
+    "author": "Kevin Deldycke",
+    "date": "2026-08-28",
+    "files": [
+      "src/click/_utils.py"
+    ],
+    "diff": "diff --git a/src/click/_utils.py b/src/click/_utils.py\nindex 05ee2e9..2d4e8f2 100644\n--- a/src/click/_utils.py\n+++ b/src/click/_utils.py\n@@ -18,6 +18,15 @@ class Sentinel(enum.Enum):\n     def __repr__(self) -> str:\n         return f\"{self.__class__.__name__}.{self.name}\"\n \n+    def __copy__(self) -> Sentinel:\n+        return self\n+\n+    def __deepcopy__(self, memo: dict[int, t.Any]) -> Sentinel:\n+        return self\n+\n+    def __reduce_ex__(self, protocol: object) -> tuple[t.Any, ...]:\n+        return getattr, (self.__class__, self.name)\n+\n \n UNSET: t.Literal[Sentinel.UNSET] = Sentinel.UNSET\n \"\"\"Sentinel used to indicate that a value is not set.\"\"\"\n"
+  },
+  {
+    "id": "RPR-007",
+    "repo": "click",
+    "commit": "ce57b87ac490ac8744491658d092bd86f571bf58",
+    "short_commit": "ce57b87a",
+    "title": "Add FAQ entry about `edit()` returning immediately",
+    "author": "Kevin Deldycke",
+    "date": "2026-08-19",
+    "files": [
+      "src/click/termui.py"
+    ],
+    "diff": "diff --git a/src/click/termui.py b/src/click/termui.py\nindex e1315f2..8fe0085 100644\n--- a/src/click/termui.py\n+++ b/src/click/termui.py\n@@ -870,6 +870,16 @@ def edit(\n     automatically converted from POSIX to Windows and vice versa.  As such,\n     the message here will have ``\\n`` as newline markers.\n \n+    .. warning::\n+\n+        The contract of this utility is that the editor command blocks until\n+        the editing session is over: Click waits for it to exit before\n+        reading the file back and cleaning it up. Editors whose command\n+        launches the real editor in the background and exits immediately\n+        break that contract. Click then returns before editing begins and\n+        removes the temporary file while the editor still has it open. See\n+        :ref:`edit-wait` to make such editors wait.\n+\n     :param text: the text to edit.\n     :param editor: optionally the editor to use.  Defaults to automatic\n                    detection.\n"
+  },
+  {
+    "id": "RPR-008",
+    "repo": "click",
+    "commit": "a1d87858abd77fa8e3ffc204670ccd75b96c4781",
+    "short_commit": "a1d87858",
+    "title": "Add support of `pathlib.Path` to `edit`",
+    "author": "Kevin Deldycke",
+    "date": "2026-08-19",
+    "files": [
+      "src/click/_termui_impl.py",
+      "src/click/termui.py"
+    ],
+    "diff": "diff --git a/src/click/_termui_impl.py b/src/click/_termui_impl.py\nindex 9fcc7f6..70aabf8 100644\n--- a/src/click/_termui_impl.py\n+++ b/src/click/_termui_impl.py\n@@ -710,7 +710,7 @@ class Editor:\n                 return editor\n         return \"vi\"\n \n-    def edit_files(self, filenames: cabc.Iterable[str]) -> None:\n+    def edit_files(self, filenames: cabc.Iterable[str | os.PathLike[str]]) -> None:\n         \"\"\"Open files in the user's editor.\"\"\"\n         import shlex\n         import subprocess\ndiff --git a/src/click/termui.py b/src/click/termui.py\nindex bb53f9c..e1315f2 100644\n--- a/src/click/termui.py\n+++ b/src/click/termui.py\n@@ -4,6 +4,7 @@ import collections.abc as cabc\n import inspect\n import io\n import itertools\n+import os\n import re\n import sys\n import typing as t\n@@ -837,7 +838,10 @@ def edit(\n     env: cabc.Mapping[str, str] | None = None,\n     require_save: bool = True,\n     extension: str = \".txt\",\n-    filename: str | cabc.Iterable[str] | None = None,\n+    filename: str\n+    | os.PathLike[str]\n+    | cabc.Iterable[str | os.PathLike[str]]\n+    | None = None,\n ) -> None: ...\n \n \n@@ -847,7 +851,10 @@ def edit(\n     env: cabc.Mapping[str, str] | None = None,\n     require_save: bool = True,\n     extension: str = \".txt\",\n-    filename: str | cabc.Iterable[str] | None = None,\n+    filename: str\n+    | os.PathLike[str]\n+    | cabc.Iterable[str | os.PathLike[str]]\n+    | None = None,\n ) -> str | bytes | bytearray | None:\n     r\"\"\"Edits the given text in the defined editor.  If an editor is given\n     (should be the full path to the executable but the regular operating\n@@ -874,16 +881,20 @@ def edit(\n                       highlighting.\n     :param filename: if provided it will edit this file instead of the\n                      provided text contents.  It will not use a temporary\n-                     file as an indirection in that case. If the editor supports\n-                     editing multiple files at once, a sequence of files may be\n-                     passed as well. Invoke `click.file` once per file instead\n-                     if multiple files cannot be managed at once or editing the\n-                     files serially is desired.\n+                     file as an indirection in that case. It accepts a path\n+                     or any iterable of paths. If the editor supports\n+                     editing multiple files at once, a sequence of files may\n+                     be passed as well. Invoke `click.file` once per file\n+                     instead if multiple files cannot be managed at once or\n+                     editing the files serially is desired.\n \n     .. versionchanged:: 8.2.0\n         ``filename`` now accepts any ``Iterable[str]`` in addition to a ``str``\n         if the ``editor`` supports editing multiple files at once.\n \n+    .. versionchanged:: 8.5.0\n+        ``filename`` accepts ``os.PathLike`` values in addition to strings.\n+\n     \"\"\"\n     from ._termui_impl import Editor\n \n@@ -892,7 +903,7 @@ def edit(\n     if filename is None:\n         return ed.edit(text)\n \n-    if isinstance(filename, str):\n+    if isinstance(filename, (str, os.PathLike)):\n         filename = (filename,)\n \n     ed.edit_files(filenames=filename)\n"
+  },
+  {
+    "id": "RPR-009",
+    "repo": "click",
+    "commit": "a6256bfb5971d5e58585fe7b6c656134e1ade5a4",
+    "short_commit": "a6256bfb",
+    "title": "Forwards all user's parameters set in `PAGER`",
+    "author": "Kevin Deldycke",
+    "date": "2026-08-18",
+    "files": [
+      "src/click/_termui_impl.py"
+    ],
+    "diff": "diff --git a/src/click/_termui_impl.py b/src/click/_termui_impl.py\nindex d1fd74e..9fcc7f6 100644\n--- a/src/click/_termui_impl.py\n+++ b/src/click/_termui_impl.py\n@@ -488,7 +488,7 @@ def _pager_contextmanager(\n     cmd_path, cmd_params = resolved\n \n     if use_tempfile:\n-        return _tempfilepager(cmd_path, color)\n+        return _tempfilepager(cmd_path, cmd_params, color)\n \n     return _pipepager(cmd_path, cmd_params, color)\n \n@@ -517,6 +517,34 @@ def get_pager_file(color: bool | None = None) -> t.Generator[t.TextIO, None, Non\n             writer.flush()\n \n \n+def _less_uses_raw_mode(less_env: str, cmd_params: list[str]) -> bool:\n+    \"\"\"Detect a raw-control-characters request in a ``less`` invocation.\n+\n+    Parses the tokens of the ``LESS`` environment variable and the command\n+    line: only short-option clusters (``-R``, ``-rX``, ``-XrY``) and the\n+    ``--raw-control-chars`` long option request raw mode. Filenames and\n+    long-option values may carry the letter ``r`` without being such a\n+    request.\n+    \"\"\"\n+    try:\n+        env_tokens = shlex.split(less_env)\n+    except ValueError:\n+        # Unbalanced quotes make ``LESS`` unparsable: fall back to whitespace\n+        # splitting rather than failing the pager over it.\n+        env_tokens = less_env.split()\n+    tokens = env_tokens + cmd_params\n+\n+    for token in tokens:\n+        if token.startswith(\"--\"):\n+            if token.casefold() == \"--raw-control-chars\":\n+                return True\n+        elif token.startswith(\"-\") and len(token) > 1:\n+            if \"r\" in token[1:].casefold():\n+                return True\n+\n+    return False\n+\n+\n @contextlib.contextmanager\n def _pipepager(\n     cmd_path: Path, cmd_params: list[str], color: bool | None = None\n@@ -535,13 +563,24 @@ def _pipepager(\n     env = dict(os.environ)\n \n     # If we're piping to less and the user hasn't decided on colors, we enable\n-    # them by default we find the -R flag in the command line arguments.\n-    if color is None and cmd_path.name == \"less\":\n-        less_flags = f\"{os.environ.get('LESS', '')}{' '.join(cmd_params)}\"\n-        if not less_flags:\n-            env[\"LESS\"] = \"-R\"\n+    # them: either the invocation already requests raw control characters, or\n+    # ``LESS=-R`` is injected. Match on the stem so a resolved ``less.exe`` is\n+    # recognized like bare ``less``, case-insensitively on Windows since its\n+    # filesystems are. POSIX keeps an exact match.\n+    cmd_name = cmd_path.stem\n+    if WIN:\n+        # ``_pager_contextmanager`` currently routes every Windows invocation\n+        # to ``_tempfilepager``, so this branch is not reachable on Windows\n+        # today: it keeps the detection correct should that routing ever\n+        # change.\n+        cmd_name = cmd_name.casefold()\n+\n+    if color is None and cmd_name == \"less\":\n+        less_env = os.environ.get(\"LESS\", \"\")\n+        if _less_uses_raw_mode(less_env, cmd_params):\n             color = True\n-        elif \"r\" in less_flags or \"R\" in less_flags:\n+        elif not less_env and not cmd_params:\n+            env[\"LESS\"] = \"-R\"\n             color = True\n \n     c = subprocess.Popen(\n@@ -595,14 +634,14 @@ def _pipepager(\n \n @contextlib.contextmanager\n def _tempfilepager(\n-    cmd_path: Path, color: bool | None = None\n+    cmd_path: Path, cmd_params: list[str], color: bool | None = None\n ) -> t.Iterator[tuple[t.TextIO, bool | None]]:\n     \"\"\"Page through text by invoking a program on a temporary file.\n \n     Used as the primary pager strategy on Windows (where piping to\n     ``more`` adds spurious ``\\\\r\\\\n``), and as a fallback on other\n-    platforms. The command is invoked with the temporary file as its only\n-    argument: any parameters the user set in ``PAGER`` are not passed on.\n+    platforms. The command is invoked with any parameters from ``PAGER``\n+    followed by the temporary file name.\n     \"\"\"\n     import subprocess\n     import tempfile\n@@ -618,7 +657,7 @@ def _tempfilepager(\n         yield t.cast(t.TextIO, f), color\n         f.flush()\n         f.close()\n-        subprocess.call([str(cmd_path), f.name])\n+        subprocess.call([str(cmd_path), *cmd_params, f.name])\n     finally:\n         # An error raised while paging skips the close() above, and Windows\n         # refuses to unlink a file the process still holds open. Closing here\n"
+  },
+  {
+    "id": "RPR-010",
+    "repo": "click",
+    "commit": "f316d5cb3aa89b57c14aee54da6ac9062ac5bec4",
+    "short_commit": "f316d5cb",
+    "title": "Land the progress bar on its final position",
+    "author": "Kevin Deldycke",
+    "date": "2026-08-15",
+    "files": [
+      "src/click/_termui_impl.py"
+    ],
+    "diff": "diff --git a/src/click/_termui_impl.py b/src/click/_termui_impl.py\nindex d4912ee..bb6ced1 100644\n--- a/src/click/_termui_impl.py\n+++ b/src/click/_termui_impl.py\n@@ -154,6 +154,14 @@ class ProgressBar(t.Generic[V]):\n         return next(iter(self))\n \n     def render_finish(self) -> None:\n+        # Steps stay pending until they add up to update_min_steps, so a length\n+        # that is not a multiple of it keeps a sub-threshold remainder that\n+        # never reaches pos. Apply it so the bar settles on its true position.\n+        if self._completed_intervals:\n+            self.make_step(self._completed_intervals)\n+            self._completed_intervals = 0\n+            self.render_progress()\n+\n         if self.hidden or not self._is_atty:\n             return\n         self.file.write(AFTER_BAR)\n"
+  },
+  {
+    "id": "RPR-011",
+    "repo": "click",
+    "commit": "00e592cea702e0b2caa0dee42489fdb1c22cd845",
+    "short_commit": "00e592ce",
+    "title": "Pre-8.5.0 release changelog and doc fixes (#3697)",
+    "author": "Rowlando13",
+    "date": "2026-07-24",
+    "files": [
+      "src/click/_compat.py",
+      "src/click/core.py",
+      "src/click/shell_completion.py",
+      "src/click/termui.py",
+      "src/click/utils.py"
+    ],
+    "diff": "diff --git a/src/click/_compat.py b/src/click/_compat.py\nindex 9c69688..5672f25 100644\n--- a/src/click/_compat.py\n+++ b/src/click/_compat.py\n@@ -513,7 +513,7 @@ def should_strip_ansi(\n     return not color\n \n \n-# double check is needed so mypy does not analyze this on Linux\n+# Double check is needed so mypy does not analyze this on Linux.\n if sys.platform.startswith(\"win\") and WIN:\n     from ._winconsole import _get_windows_console_stream\n \ndiff --git a/src/click/core.py b/src/click/core.py\nindex 6f48367..f29dc46 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -3662,7 +3662,7 @@ class Argument(Parameter):\n \n     :param help: the help string.\n \n-    .. versionchanged:: 8.5\n+    .. versionchanged:: 8.5.0\n         Added the ``help`` parameter.\n     \"\"\"\n \ndiff --git a/src/click/shell_completion.py b/src/click/shell_completion.py\nindex 62f5c82..8a2668b 100644\n--- a/src/click/shell_completion.py\n+++ b/src/click/shell_completion.py\n@@ -521,7 +521,7 @@ class FishComplete(ShellComplete):\n class PowerShellComplete(ShellComplete):\n     \"\"\"Shell completion for PowerShell (Windows PowerShell 5.1+ and pwsh 7+).\n \n-    .. versionadded:: 8.5\n+    .. versionadded:: 8.5.0\n     \"\"\"\n \n     name: t.ClassVar[str] = \"powershell\"\n@@ -623,7 +623,7 @@ def split_arg_string(string: str) -> list[str]:\n     lex = shlex.shlex(string, posix=True)\n     lex.whitespace_split = True\n     lex.commenters = \"\"\n-    out = []  # type: list[str]\n+    out: list[str] = []\n \n     try:\n         out.extend(lex)\ndiff --git a/src/click/termui.py b/src/click/termui.py\nindex 34b5757..bb53f9c 100644\n--- a/src/click/termui.py\n+++ b/src/click/termui.py\n@@ -712,9 +712,9 @@ def style(\n                   string which means that styles do not carry over.  This\n                   can be disabled to compose styles.\n \n-    .. versionchanged:: 8.5\n+    .. versionchanged:: 8.5.0\n         All invalid color values raise :exc:`ValueError`. 256-color index\n-        ``0`` is not ignored\n+        ``0`` is no longer ignored.\n \n     .. versionchanged:: 8.0\n         A non-string ``message`` is converted to a string.\ndiff --git a/src/click/utils.py b/src/click/utils.py\nindex 6e3291d..b529eb0 100644\n--- a/src/click/utils.py\n+++ b/src/click/utils.py\n@@ -279,7 +279,7 @@ def echo(\n         default Click will remove color if the output does not look like\n         an interactive terminal.\n \n-    .. versionchanged:: 8.5\n+    .. versionchanged:: 8.5.0\n         Colorama is no longer used for color on Windows.\n \n     .. versionchanged:: 6.0\n"
+  },
+  {
+    "id": "RPR-012",
+    "repo": "click",
+    "commit": "0f4738df88e3ea47c40a4a442103596a61cfee79",
+    "short_commit": "0f4738df",
+    "title": "Fix docs and changelog",
+    "author": "Kevin Deldycke",
+    "date": "2026-07-17",
+    "files": [
+      "src/click/_compat.py",
+      "src/click/core.py",
+      "src/click/shell_completion.py",
+      "src/click/termui.py",
+      "src/click/utils.py"
+    ],
+    "diff": "diff --git a/src/click/_compat.py b/src/click/_compat.py\nindex 9c69688..5672f25 100644\n--- a/src/click/_compat.py\n+++ b/src/click/_compat.py\n@@ -513,7 +513,7 @@ def should_strip_ansi(\n     return not color\n \n \n-# double check is needed so mypy does not analyze this on Linux\n+# Double check is needed so mypy does not analyze this on Linux.\n if sys.platform.startswith(\"win\") and WIN:\n     from ._winconsole import _get_windows_console_stream\n \ndiff --git a/src/click/core.py b/src/click/core.py\nindex 6f48367..f29dc46 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -3662,7 +3662,7 @@ class Argument(Parameter):\n \n     :param help: the help string.\n \n-    .. versionchanged:: 8.5\n+    .. versionchanged:: 8.5.0\n         Added the ``help`` parameter.\n     \"\"\"\n \ndiff --git a/src/click/shell_completion.py b/src/click/shell_completion.py\nindex 62f5c82..8a2668b 100644\n--- a/src/click/shell_completion.py\n+++ b/src/click/shell_completion.py\n@@ -521,7 +521,7 @@ class FishComplete(ShellComplete):\n class PowerShellComplete(ShellComplete):\n     \"\"\"Shell completion for PowerShell (Windows PowerShell 5.1+ and pwsh 7+).\n \n-    .. versionadded:: 8.5\n+    .. versionadded:: 8.5.0\n     \"\"\"\n \n     name: t.ClassVar[str] = \"powershell\"\n@@ -623,7 +623,7 @@ def split_arg_string(string: str) -> list[str]:\n     lex = shlex.shlex(string, posix=True)\n     lex.whitespace_split = True\n     lex.commenters = \"\"\n-    out = []  # type: list[str]\n+    out: list[str] = []\n \n     try:\n         out.extend(lex)\ndiff --git a/src/click/termui.py b/src/click/termui.py\nindex 34b5757..bb53f9c 100644\n--- a/src/click/termui.py\n+++ b/src/click/termui.py\n@@ -712,9 +712,9 @@ def style(\n                   string which means that styles do not carry over.  This\n                   can be disabled to compose styles.\n \n-    .. versionchanged:: 8.5\n+    .. versionchanged:: 8.5.0\n         All invalid color values raise :exc:`ValueError`. 256-color index\n-        ``0`` is not ignored\n+        ``0`` is no longer ignored.\n \n     .. versionchanged:: 8.0\n         A non-string ``message`` is converted to a string.\ndiff --git a/src/click/utils.py b/src/click/utils.py\nindex 6e3291d..b529eb0 100644\n--- a/src/click/utils.py\n+++ b/src/click/utils.py\n@@ -279,7 +279,7 @@ def echo(\n         default Click will remove color if the output does not look like\n         an interactive terminal.\n \n-    .. versionchanged:: 8.5\n+    .. versionchanged:: 8.5.0\n         Colorama is no longer used for color on Windows.\n \n     .. versionchanged:: 6.0\n"
+  },
+  {
+    "id": "RPR-013",
+    "repo": "click",
+    "commit": "b67832c2167e5b0ff6764a8c04a0a9087e697b5a",
+    "short_commit": "b67832c2",
+    "title": "Fix parsing when a parameter is named `help` (#3678)",
+    "author": "Rowlando13",
+    "date": "2026-07-09",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex 6de4216..cc8fb47 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -55,6 +55,10 @@ if t.TYPE_CHECKING:\n F = t.TypeVar(\"F\", bound=\"t.Callable[..., t.Any]\")\n V = t.TypeVar(\"V\")\n \n+# Reserved storage name of the automatic help option. No user parameter is\n+# expected to claim it.\n+_HELP_OPTION_STORAGE_NAME = \"_click_default_help\"\n+\n \n def _complete_visible_commands(\n     ctx: Context, incomplete: str\n@@ -1119,6 +1123,37 @@ class Command:\n                     stacklevel=3,\n                 )\n \n+            # Options may deliberately share a storage name to compete for\n+            # the same value (feature switches), but an argument sharing a\n+            # name silently overwrites the other parameter's value.\n+            names_counter = Counter(param.name for param in params)\n+            duplicate_names = (\n+                name for name, count in names_counter.items() if count > 1\n+            )\n+\n+            for duplicate_name in duplicate_names:\n+                sharers = [param for param in params if param.name == duplicate_name]\n+\n+                if help_option in sharers:\n+                    warnings.warn(\n+                        (\n+                            f\"The name {duplicate_name!r} is reserved for the \"\n+                            \"automatic help option. Give the parameter a \"\n+                            \"different name.\"\n+                        ),\n+                        stacklevel=3,\n+                    )\n+                elif any(isinstance(param, Argument) for param in sharers):\n+                    warnings.warn(\n+                        (\n+                            f\"The name {duplicate_name!r} is used by an argument \"\n+                            \"and another parameter. They will overwrite each \"\n+                            \"other's value during parsing. Give each parameter \"\n+                            \"a unique name.\"\n+                        ),\n+                        stacklevel=3,\n+                    )\n+\n         return params\n \n     def format_usage(self, ctx: Context, formatter: HelpFormatter) -> None:\n@@ -1153,6 +1188,11 @@ class Command:\n \n         Skipped if :attr:`add_help_option` is ``False``.\n \n+        .. versionchanged:: 8.5.0\n+            The help option stores its value under the reserved name\n+            ``_click_default_help``, so a parameter named ``help`` no\n+            longer breaks parsing.\n+\n         .. versionchanged:: 8.1.8\n             The help option is now cached to avoid creating it multiple times.\n         \"\"\"\n@@ -1169,8 +1209,10 @@ class Command:\n             # Avoid circular import.\n             from .decorators import help_option\n \n-            # Apply help_option decorator and pop resulting option\n-            help_option(*help_option_names)(self)\n+            # The help option never exposes its value, so it uses a reserved\n+            # storage name, keeping it clear of user parameters (like an\n+            # argument named \"help\") that would otherwise clobber its value.\n+            help_option(*help_option_names, _HELP_OPTION_STORAGE_NAME)(self)\n             self._help_option = self.params.pop()  # type: ignore[assignment]\n \n         return self._help_option\n"
+  },
+  {
+    "id": "RPR-014",
+    "repo": "click",
+    "commit": "a28d839d3e68bb81b77bcd862fb29e35dcf894f9",
+    "short_commit": "a28d839d",
+    "title": "Merge branch 'main' into fix-help-name-collision",
+    "author": "Rowlando13",
+    "date": "2026-07-09",
+    "files": [
+      "src/click/_compat.py"
+    ],
+    "diff": "diff --git a/src/click/_compat.py b/src/click/_compat.py\nindex 90e328b..9c69688 100644\n--- a/src/click/_compat.py\n+++ b/src/click/_compat.py\n@@ -12,7 +12,11 @@ from weakref import WeakKeyDictionary\n \n CYGWIN = sys.platform.startswith(\"cygwin\")\n WIN = sys.platform.startswith(\"win\")\n-_ansi_re = re.compile(r\"\\033\\[[;?0-9]*[a-zA-Z]\")\n+# One CSI escape sequence per the ECMA-48 grammar: parameter bytes (0x30-0x3F),\n+# intermediate bytes (0x20-0x2F), then a final byte (0x40-0x7E). Broader than the\n+# SGR codes Click emits, so foreign sequences (colon-delimited true-color, mouse\n+# reporting) are stripped too.\n+_ansi_re = re.compile(r\"\\033\\[[0-?]*[ -/]*[@-~]\")\n \n \n def _make_text_stream(\n"
+  },
+  {
+    "id": "RPR-015",
+    "repo": "click",
+    "commit": "3495fba163dd61dea837cd557095df6c21515ac8",
+    "short_commit": "3495fba1",
+    "title": "Warn when an argument name collide with other parameters",
+    "author": "Kevin Deldycke",
+    "date": "2026-07-07",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex 6de4216..cc8fb47 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -55,6 +55,10 @@ if t.TYPE_CHECKING:\n F = t.TypeVar(\"F\", bound=\"t.Callable[..., t.Any]\")\n V = t.TypeVar(\"V\")\n \n+# Reserved storage name of the automatic help option. No user parameter is\n+# expected to claim it.\n+_HELP_OPTION_STORAGE_NAME = \"_click_default_help\"\n+\n \n def _complete_visible_commands(\n     ctx: Context, incomplete: str\n@@ -1119,6 +1123,37 @@ class Command:\n                     stacklevel=3,\n                 )\n \n+            # Options may deliberately share a storage name to compete for\n+            # the same value (feature switches), but an argument sharing a\n+            # name silently overwrites the other parameter's value.\n+            names_counter = Counter(param.name for param in params)\n+            duplicate_names = (\n+                name for name, count in names_counter.items() if count > 1\n+            )\n+\n+            for duplicate_name in duplicate_names:\n+                sharers = [param for param in params if param.name == duplicate_name]\n+\n+                if help_option in sharers:\n+                    warnings.warn(\n+                        (\n+                            f\"The name {duplicate_name!r} is reserved for the \"\n+                            \"automatic help option. Give the parameter a \"\n+                            \"different name.\"\n+                        ),\n+                        stacklevel=3,\n+                    )\n+                elif any(isinstance(param, Argument) for param in sharers):\n+                    warnings.warn(\n+                        (\n+                            f\"The name {duplicate_name!r} is used by an argument \"\n+                            \"and another parameter. They will overwrite each \"\n+                            \"other's value during parsing. Give each parameter \"\n+                            \"a unique name.\"\n+                        ),\n+                        stacklevel=3,\n+                    )\n+\n         return params\n \n     def format_usage(self, ctx: Context, formatter: HelpFormatter) -> None:\n@@ -1153,6 +1188,11 @@ class Command:\n \n         Skipped if :attr:`add_help_option` is ``False``.\n \n+        .. versionchanged:: 8.5.0\n+            The help option stores its value under the reserved name\n+            ``_click_default_help``, so a parameter named ``help`` no\n+            longer breaks parsing.\n+\n         .. versionchanged:: 8.1.8\n             The help option is now cached to avoid creating it multiple times.\n         \"\"\"\n@@ -1169,8 +1209,10 @@ class Command:\n             # Avoid circular import.\n             from .decorators import help_option\n \n-            # Apply help_option decorator and pop resulting option\n-            help_option(*help_option_names)(self)\n+            # The help option never exposes its value, so it uses a reserved\n+            # storage name, keeping it clear of user parameters (like an\n+            # argument named \"help\") that would otherwise clobber its value.\n+            help_option(*help_option_names, _HELP_OPTION_STORAGE_NAME)(self)\n             self._help_option = self.params.pop()  # type: ignore[assignment]\n \n         return self._help_option\n"
+  },
+  {
+    "id": "RPR-016",
+    "repo": "click",
+    "commit": "1ac08db953684e10ed97adbbda81381efd82ce09",
+    "short_commit": "1ac08db9",
+    "title": "Fix ruff E501 line-too-long in PowerShell template",
+    "author": "Zhihua Lai",
+    "date": "2026-06-26",
+    "files": [
+      "src/click/shell_completion.py"
+    ],
+    "diff": "diff --git a/src/click/shell_completion.py b/src/click/shell_completion.py\nindex 3fffcdd..7cf9813 100644\n--- a/src/click/shell_completion.py\n+++ b/src/click/shell_completion.py\n@@ -228,6 +228,7 @@ Register-ArgumentCompleter -Native -CommandName %(prog_name)s -ScriptBlock {\n \n     if (-not $response) { return }\n \n+    $prefix = \"$wordToComplete*\"\n     $lines = $response -split \"`n\"\n     for ($i = 0; $i + 2 -lt $lines.Count; $i += 3) {\n         $type = $lines[$i]\n@@ -240,15 +241,16 @@ Register-ArgumentCompleter -Native -CommandName %(prog_name)s -ScriptBlock {\n             [System.Management.Automation.CompletionResult]::new(\n                 $value, $value, 'ParameterValue', $tip)\n         } elseif ($type -eq 'dir') {\n-            Get-ChildItem -Directory -Path \"$wordToComplete*\" -ErrorAction SilentlyContinue |\n+            Get-ChildItem -Directory -Path $prefix -ErrorAction SilentlyContinue |\n                 ForEach-Object {\n                     [System.Management.Automation.CompletionResult]::new(\n                         $_.FullName, $_.Name, 'ProviderContainer', $_.FullName)\n                 }\n         } elseif ($type -eq 'file') {\n-            Get-ChildItem -Path \"$wordToComplete*\" -ErrorAction SilentlyContinue |\n+            Get-ChildItem -Path $prefix -ErrorAction SilentlyContinue |\n                 ForEach-Object {\n-                    $kind = if ($_.PSIsContainer) { 'ProviderContainer' } else { 'ProviderItem' }\n+                    $kind = 'ProviderItem'\n+                    if ($_.PSIsContainer) { $kind = 'ProviderContainer' }\n                     [System.Management.Automation.CompletionResult]::new(\n                         $_.FullName, $_.Name, $kind, $_.FullName)\n                 }\n"
+  },
+  {
+    "id": "RPR-017",
+    "repo": "click",
+    "commit": "09195f6a92972c4e1bbb5493686456e6ba624520",
+    "short_commit": "09195f6a",
+    "title": "Fix double-bracketing of choices in synopsis (#3578)",
+    "author": "Rowlando13",
+    "date": "2026-06-12",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex d2db291..d7ecbef 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -3571,9 +3571,14 @@ class Argument(Parameter):\n         var = self.type.get_metavar(param=self, ctx=ctx)\n         if not var:\n             var = self.name.upper()\n+        # Types like ``Choice`` and ``DateTime`` already surround their metavar\n+        # with square brackets to enumerate the allowed values. Reuse those\n+        # outer brackets as the optional-argument indicator instead of wrapping\n+        # the metavar in a second pair, which would produce ``[[a|b|c]]``.\n+        already_bracketed = var.startswith(\"[\") and var.endswith(\"]\")\n         if self.deprecated:\n             var += \"!\"\n-        if not self.required:\n+        if not self.required and not already_bracketed:\n             var = f\"[{var}]\"\n         if self.nargs != 1:\n             var += \"...\"\n"
+  },
+  {
+    "id": "RPR-018",
+    "repo": "click",
+    "commit": "762c97eef7c1b3779678992f26a553a2a8c80793",
+    "short_commit": "762c97ee",
+    "title": "Fix double-bracketing of choices in synopsis",
+    "author": "Kevin Deldycke",
+    "date": "2026-06-10",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex d2db291..d7ecbef 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -3571,9 +3571,14 @@ class Argument(Parameter):\n         var = self.type.get_metavar(param=self, ctx=ctx)\n         if not var:\n             var = self.name.upper()\n+        # Types like ``Choice`` and ``DateTime`` already surround their metavar\n+        # with square brackets to enumerate the allowed values. Reuse those\n+        # outer brackets as the optional-argument indicator instead of wrapping\n+        # the metavar in a second pair, which would produce ``[[a|b|c]]``.\n+        already_bracketed = var.startswith(\"[\") and var.endswith(\"]\")\n         if self.deprecated:\n             var += \"!\"\n-        if not self.required:\n+        if not self.required and not already_bracketed:\n             var = f\"[{var}]\"\n         if self.nargs != 1:\n             var += \"...\"\n"
+  },
+  {
+    "id": "RPR-019",
+    "repo": "click",
+    "commit": "e02a981c98cde14152ac38fe2b1d7daae7c37167",
+    "short_commit": "e02a981c",
+    "title": "Pre-8.4.2 release changelog and doc fixes (#3498)",
+    "author": "Rowlando13",
+    "date": "2026-05-29",
+    "files": [
+      "src/click/_termui_impl.py"
+    ],
+    "diff": "diff --git a/src/click/_termui_impl.py b/src/click/_termui_impl.py\nindex 76113e9..3336c37 100644\n--- a/src/click/_termui_impl.py\n+++ b/src/click/_termui_impl.py\n@@ -430,8 +430,11 @@ def _pager_contextmanager(\n @contextlib.contextmanager\n def get_pager_file(color: bool | None = None) -> t.Generator[t.TextIO, None, None]:\n     \"\"\"Context manager.\n+\n     Yields a writable file-like object which can be used as an output pager.\n-    .. versionadded:: 8.4\n+\n+    .. versionadded:: 8.4.0\n+\n     :param color: controls if the pager supports ANSI colors or not.  The\n                   default is autodetection.\n     \"\"\"\n"
+  },
+  {
+    "id": "RPR-020",
+    "repo": "click",
+    "commit": "399919f740bfd26cb30d544877fafd03cfcd9091",
+    "short_commit": "399919f7",
+    "title": "Support incremental output in the pager",
+    "author": "Kevin Deldycke",
+    "date": "2026-05-29",
+    "files": [
+      "src/click/termui.py"
+    ],
+    "diff": "diff --git a/src/click/termui.py b/src/click/termui.py\nindex 91ef6e1..9bc88db 100644\n--- a/src/click/termui.py\n+++ b/src/click/termui.py\n@@ -346,6 +346,10 @@ def echo_via_pager(\n     with get_pager_file(color=color) as pager:\n         for text in itertools.chain(text_generator, \"\\n\"):\n             pager.write(text)\n+            # Flush after each write so a slow generator streams to the pager\n+            # incrementally rather than staying invisible until the pipe buffer\n+            # fills (~8 KB).\n+            pager.flush()\n \n \n @t.overload\n"
+  },
+  {
+    "id": "RPR-021",
+    "repo": "click",
+    "commit": "bff780ff9df7a8d0a271db2f80c17c7be32dc2a1",
+    "short_commit": "bff780ff",
+    "title": "Fix layout, align full version",
+    "author": "Kevin Deldycke",
+    "date": "2026-05-22",
+    "files": [
+      "src/click/_termui_impl.py"
+    ],
+    "diff": "diff --git a/src/click/_termui_impl.py b/src/click/_termui_impl.py\nindex 76113e9..3336c37 100644\n--- a/src/click/_termui_impl.py\n+++ b/src/click/_termui_impl.py\n@@ -430,8 +430,11 @@ def _pager_contextmanager(\n @contextlib.contextmanager\n def get_pager_file(color: bool | None = None) -> t.Generator[t.TextIO, None, None]:\n     \"\"\"Context manager.\n+\n     Yields a writable file-like object which can be used as an output pager.\n-    .. versionadded:: 8.4\n+\n+    .. versionadded:: 8.4.0\n+\n     :param color: controls if the pager supports ANSI colors or not.  The\n                   default is autodetection.\n     \"\"\"\n"
+  },
+  {
+    "id": "RPR-022",
+    "repo": "click",
+    "commit": "665736bc85a19a7a2357c071394b4a545617faa3",
+    "short_commit": "665736bc",
+    "title": "Mark commands as optional in the synopsis",
+    "author": "Kevin Deldycke",
+    "date": "2026-05-23",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex f104fee..b422bd4 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -1623,8 +1623,15 @@ class Group(Command):\n         self.invoke_without_command = invoke_without_command\n \n         if subcommand_metavar is None:\n+            # When the group can run without a subcommand, the leading command\n+            # token is optional, so wrap it in brackets to reflect that.\n             if chain:\n-                subcommand_metavar = \"COMMAND1 [ARGS]... [COMMAND2 [ARGS]...]...\"\n+                if invoke_without_command:\n+                    subcommand_metavar = \"[COMMAND1] [ARGS]... [COMMAND2 [ARGS]...]...\"\n+                else:\n+                    subcommand_metavar = \"COMMAND1 [ARGS]... [COMMAND2 [ARGS]...]...\"\n+            elif invoke_without_command:\n+                subcommand_metavar = \"[COMMAND] [ARGS]...\"\n             else:\n                 subcommand_metavar = \"COMMAND [ARGS]...\"\n \n"
+  },
+  {
+    "id": "RPR-023",
+    "repo": "click",
+    "commit": "9a2d169fcf5c3cce7b0cd5971ca2786e1f72c210",
+    "short_commit": "9a2d169f",
+    "title": "fix generic typed dict `TypeError` on Python 3.10",
+    "author": "jorenham",
+    "date": "2026-05-18",
+    "files": [
+      "src/click/types.py"
+    ],
+    "diff": "diff --git a/src/click/types.py b/src/click/types.py\nindex 39499c1..1e9872e 100644\n--- a/src/click/types.py\n+++ b/src/click/types.py\n@@ -189,8 +189,18 @@ class CompositeParamType(ParamType[_ValueT_co]):\n     def arity(self) -> int: ...  # type: ignore[override]\n \n \n-class FuncParamTypeInfoDict(ParamTypeInfoDict, t.Generic[_ValueT_contra, _ValueT_co]):\n-    func: t.Callable[[_ValueT_contra], _ValueT_co]\n+if t.TYPE_CHECKING:\n+    # on Python 3.10 this will raise a TypeError\n+\n+    class FuncParamTypeInfoDict(\n+        ParamTypeInfoDict,\n+        t.Generic[_ValueT_contra, _ValueT_co],\n+    ):\n+        func: t.Callable[[_ValueT_contra], _ValueT_co]\n+else:\n+\n+    class FuncParamTypeInfoDict(ParamTypeInfoDict):\n+        func: t.Callable[[t.Any], t.Any]\n \n \n class FuncParamType(ParamType[_ValueT_co], t.Generic[_ValueT_contra, _ValueT_co]):\n@@ -258,9 +268,17 @@ class StringParamType(ParamType[str]):\n         return \"STRING\"\n \n \n-class ChoiceInfoDict(ParamTypeInfoDict, t.Generic[_ValueT_co]):\n-    choices: tuple[_ValueT_co, ...]\n-    case_sensitive: bool\n+if t.TYPE_CHECKING:\n+    # on Python 3.10 this will raise a TypeError\n+\n+    class ChoiceInfoDict(ParamTypeInfoDict, t.Generic[_ValueT_co]):\n+        choices: tuple[_ValueT_co, ...]\n+        case_sensitive: bool\n+else:\n+\n+    class ChoiceInfoDict(ParamTypeInfoDict):\n+        choices: tuple[t.Any, ...]\n+        case_sensitive: bool\n \n \n class Choice(ParamType[_ValueT_co], t.Generic[_ValueT_co]):\n@@ -534,12 +552,23 @@ class _NumberParamTypeBase(\n             )\n \n \n-class NumberRangeInfoDict(ParamTypeInfoDict, t.Generic[_FloatValueT_co]):\n-    min: _FloatValueT_co | None\n-    max: _FloatValueT_co | None\n-    min_open: bool\n-    max_open: bool\n-    clamp: bool\n+if t.TYPE_CHECKING:\n+    # on Python 3.10 this will raise a TypeError\n+\n+    class NumberRangeInfoDict(ParamTypeInfoDict, t.Generic[_FloatValueT_co]):\n+        min: _FloatValueT_co | None\n+        max: _FloatValueT_co | None\n+        min_open: bool\n+        max_open: bool\n+        clamp: bool\n+else:\n+\n+    class NumberRangeInfoDict(ParamTypeInfoDict):\n+        min: t.Any | None\n+        max: t.Any | None\n+        min_open: bool\n+        max_open: bool\n+        clamp: bool\n \n \n class _NumberRangeBase(\n"
+  },
+  {
+    "id": "RPR-024",
+    "repo": "click",
+    "commit": "d42f15b71757de791a5781fb179fd972da9169f5",
+    "short_commit": "d42f15b7",
+    "title": "Fix `get_parameter_source()` during type conversion and eager callbacks (#3484)",
+    "author": "David Lord",
+    "date": "2026-05-21",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex 3544c03..bf6c813 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -2609,6 +2609,11 @@ class Parameter(ABC):\n         with augment_usage_errors(ctx, param=self):\n             value, source = self.consume_value(ctx, opts)\n \n+            # Record the source before processing so eager callbacks and type\n+            # conversion can inspect it. Restored after arbitration if this\n+            # option loses a feature-switch group.\n+            ctx.set_parameter_source(self.name, source)\n+\n             # Display a deprecation warning if necessary.\n             if (\n                 self.deprecated\n@@ -2654,14 +2659,16 @@ class Parameter(ABC):\n         )\n \n         if is_winner:\n-            ctx.set_parameter_source(self.name, source)\n             if self.expose_value:\n                 ctx.params[self.name] = value\n                 ctx._param_default_explicit[self.name] = self._default_explicit\n-        elif existing_source is None:\n-            # Nothing has claimed the slot yet. Record at least our source so downstream\n-            # lookups don't return ``None``.\n-            ctx.set_parameter_source(self.name, source)\n+        elif existing_source is not None:\n+            # Lost arbitration; restore the winning option's source.\n+            ctx.set_parameter_source(self.name, existing_source)\n+        # else: ctx.params[self.name] was populated by code that bypassed\n+        # handle_parse_result (from another option's callback for example). Keep\n+        # the provisional source recorded before process_value so downstream\n+        # lookups don't return ``None``.\n \n         return value, args\n \n"
+  },
+  {
+    "id": "RPR-025",
+    "repo": "click",
+    "commit": "9b327da8275bb63bd7bbd43ad8ff9862480da267",
+    "short_commit": "9b327da8",
+    "title": "Fix 2994 launch locate files w spaces windows (#3478)",
+    "author": "Rowlando13",
+    "date": "2026-05-19",
+    "files": [
+      "src/click/_termui_impl.py"
+    ],
+    "diff": "diff --git a/src/click/_termui_impl.py b/src/click/_termui_impl.py\nindex 22bab98..1d23026 100644\n--- a/src/click/_termui_impl.py\n+++ b/src/click/_termui_impl.py\n@@ -759,7 +759,7 @@ def open_url(url: str, wait: bool = False, locate: bool = False) -> int:\n     elif WIN:\n         if locate:\n             url = _unquote_file(url)\n-            args = [\"explorer\", f\"/select,{url}\"]\n+            args = [\"explorer\", \"/select,\", url]\n             try:\n                 return subprocess.call(args)\n             except OSError:\n"
+  },
+  {
+    "id": "RPR-026",
+    "repo": "click",
+    "commit": "c6bf75fa74bff6523375cf91f97af0a7aae85fce",
+    "short_commit": "c6bf75fa",
+    "title": "Fixes windows specific error regarding spaces in filepaths for open_url.",
+    "author": "plumlariat",
+    "date": "2026-05-19",
+    "files": [
+      "src/click/_termui_impl.py"
+    ],
+    "diff": "diff --git a/src/click/_termui_impl.py b/src/click/_termui_impl.py\nindex 22bab98..1d23026 100644\n--- a/src/click/_termui_impl.py\n+++ b/src/click/_termui_impl.py\n@@ -759,7 +759,7 @@ def open_url(url: str, wait: bool = False, locate: bool = False) -> int:\n     elif WIN:\n         if locate:\n             url = _unquote_file(url)\n-            args = [\"explorer\", f\"/select,{url}\"]\n+            args = [\"explorer\", \"/select,\", url]\n             try:\n                 return subprocess.call(args)\n             except OSError:\n"
+  },
+  {
+    "id": "RPR-027",
+    "repo": "click",
+    "commit": "32ae2acd3474a57d2450ea849545b2e1258bf76a",
+    "short_commit": "32ae2acd",
+    "title": "choice shell autocompletion to use normalize_choice()",
+    "author": "Keerthana Panyam",
+    "date": "2026-05-18",
+    "files": [
+      "src/click/types.py"
+    ],
+    "diff": "diff --git a/src/click/types.py b/src/click/types.py\nindex 556f20f..1ca3e9b 100644\n--- a/src/click/types.py\n+++ b/src/click/types.py\n@@ -408,8 +408,7 @@ class Choice(ParamType[ParamTypeValue], t.Generic[ParamTypeValue]):\n         \"\"\"\n         from click.shell_completion import CompletionItem\n \n-        str_choices = map(str, self.choices)\n-\n+        str_choices = [self.normalize_choice(choice, ctx) for choice in self.choices]\n         if self.case_sensitive:\n             matched = (c for c in str_choices if c.startswith(incomplete))\n         else:\n"
+  },
+  {
+    "id": "RPR-028",
+    "repo": "click",
+    "commit": "3bb230dcd5d751f8605b46e9df5a541639d5fd4e",
+    "short_commit": "3bb230dc",
+    "title": "WIP: Fix `HelpFormatter.write_usage` producing spurious characters (#3434)",
+    "author": "Rowlando13",
+    "date": "2026-05-16",
+    "files": [
+      "src/click/formatting.py"
+    ],
+    "diff": "diff --git a/src/click/formatting.py b/src/click/formatting.py\nindex d9075ca..bb179a4 100644\n--- a/src/click/formatting.py\n+++ b/src/click/formatting.py\n@@ -164,6 +164,14 @@ class HelpFormatter:\n         usage_prefix = f\"{prefix:>{self.current_indent}}{prog} \"\n         text_width = self.width - self.current_indent\n \n+        if not args:\n+            # Without args, the prefix's trailing space and the wrap_text\n+            # call that would normally place args on the line are both\n+            # unnecessary. Emit just the prefix line.\n+            self.write(usage_prefix.rstrip(\" \"))\n+            self.write(\"\\n\")\n+            return\n+\n         if text_width >= (term_len(usage_prefix) + 20):\n             # The arguments will fit to the right of the prefix.\n             indent = \" \" * term_len(usage_prefix)\n"
+  },
+  {
+    "id": "RPR-029",
+    "repo": "click",
+    "commit": "0551bf53588ae87f462d336f24f853a156fefe3a",
+    "short_commit": "0551bf53",
+    "title": "Fix `HelpFormatter.write_usage` producing spurious characters",
+    "author": "Kevin Deldycke",
+    "date": "2026-05-16",
+    "files": [
+      "src/click/formatting.py"
+    ],
+    "diff": "diff --git a/src/click/formatting.py b/src/click/formatting.py\nindex d9075ca..bb179a4 100644\n--- a/src/click/formatting.py\n+++ b/src/click/formatting.py\n@@ -164,6 +164,14 @@ class HelpFormatter:\n         usage_prefix = f\"{prefix:>{self.current_indent}}{prog} \"\n         text_width = self.width - self.current_indent\n \n+        if not args:\n+            # Without args, the prefix's trailing space and the wrap_text\n+            # call that would normally place args on the line are both\n+            # unnecessary. Emit just the prefix line.\n+            self.write(usage_prefix.rstrip(\" \"))\n+            self.write(\"\\n\")\n+            return\n+\n         if text_width >= (term_len(usage_prefix) + 20):\n             # The arguments will fit to the right of the prefix.\n             indent = \" \" * term_len(usage_prefix)\n"
+  },
+  {
+    "id": "RPR-030",
+    "repo": "click",
+    "commit": "0cd28d6548f92e46396e0ffdd19ec5ea75b4b5e4",
+    "short_commit": "0cd28d65",
+    "title": "fix help hint showing shadowed option name (#3208)",
+    "author": "Rowlando13",
+    "date": "2026-04-29",
+    "files": [
+      "src/click/exceptions.py"
+    ],
+    "diff": "diff --git a/src/click/exceptions.py b/src/click/exceptions.py\nindex 4d782ee..0035927 100644\n--- a/src/click/exceptions.py\n+++ b/src/click/exceptions.py\n@@ -78,8 +78,12 @@ class UsageError(ClickException):\n             self.ctx is not None\n             and self.ctx.command.get_help_option(self.ctx) is not None\n         ):\n+            help_names = self.ctx.command.get_help_option_names(self.ctx)\n+            # Pick the longest name (like ``--help`` over ``-h``) for\n+            # readability in error messages.\n             hint = _(\"Try '{command} {option}' for help.\").format(\n-                command=self.ctx.command_path, option=self.ctx.help_option_names[0]\n+                command=self.ctx.command_path,\n+                option=max(help_names, key=len),\n             )\n             hint = f\"{hint}\\n\"\n         if self.ctx is not None:\n"
+  },
+  {
+    "id": "RPR-031",
+    "repo": "click",
+    "commit": "3a3e0350b6a2ea3e799440d48e779acabcf44de9",
+    "short_commit": "3a3e0350",
+    "title": "Split string values from `default_map` for multi-value parameters",
+    "author": "Kevin Deldycke",
+    "date": "2026-04-21",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex 65bdac5..1cc9474 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -2356,6 +2356,11 @@ class Parameter:\n                 value = default_map_value\n                 source = ParameterSource.DEFAULT_MAP\n \n+                # A string from default_map must be split for multi-value\n+                # parameters, matching value_from_envvar behavior.\n+                if isinstance(value, str) and self.nargs != 1:\n+                    value = self.type.split_envvar_value(value)\n+\n         if value is UNSET:\n             default_value = self.get_default(ctx)\n             if default_value is not UNSET:\n"
+  },
+  {
+    "id": "RPR-032",
+    "repo": "click",
+    "commit": "1241abaed4e441582a21f4bf90c8482de02b92df",
+    "short_commit": "1241abae",
+    "title": "Use non-shadowed help option name in error hint",
+    "author": "Kevin Deldycke",
+    "date": "2026-04-21",
+    "files": [
+      "src/click/exceptions.py"
+    ],
+    "diff": "diff --git a/src/click/exceptions.py b/src/click/exceptions.py\nindex 4d782ee..0035927 100644\n--- a/src/click/exceptions.py\n+++ b/src/click/exceptions.py\n@@ -78,8 +78,12 @@ class UsageError(ClickException):\n             self.ctx is not None\n             and self.ctx.command.get_help_option(self.ctx) is not None\n         ):\n+            help_names = self.ctx.command.get_help_option_names(self.ctx)\n+            # Pick the longest name (like ``--help`` over ``-h``) for\n+            # readability in error messages.\n             hint = _(\"Try '{command} {option}' for help.\").format(\n-                command=self.ctx.command_path, option=self.ctx.help_option_names[0]\n+                command=self.ctx.command_path,\n+                option=max(help_names, key=len),\n             )\n             hint = f\"{hint}\\n\"\n         if self.ctx is not None:\n"
+  },
+  {
+    "id": "RPR-033",
+    "repo": "click",
+    "commit": "1458800409ed12076f18451889b0857db36aa522",
+    "short_commit": "14588004",
+    "title": "Fix speculative empty string check (#3299)",
+    "author": "Rowlando13",
+    "date": "2026-04-08",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex f0a624b..6dc44f3 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -3110,7 +3110,7 @@ class Option(Parameter):\n                 )[1]\n             elif self.is_bool_flag and not self.secondary_opts and not default_value:\n                 default_string = \"\"\n-            elif default_value == \"\":\n+            elif isinstance(default_value, str) and default_value == \"\":\n                 default_string = '\"\"'\n             else:\n                 default_string = str(default_value)\n"
+  },
+  {
+    "id": "RPR-034",
+    "repo": "click",
+    "commit": "d340b0c1202284a1b9d0ca892549208527d586ce",
+    "short_commit": "d340b0c1",
+    "title": "Fix speculative speculative empty string check",
+    "author": "Kevin Deldycke",
+    "date": "2026-04-01",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex f0a624b..6dc44f3 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -3110,7 +3110,7 @@ class Option(Parameter):\n                 )[1]\n             elif self.is_bool_flag and not self.secondary_opts and not default_value:\n                 default_string = \"\"\n-            elif default_value == \"\":\n+            elif isinstance(default_value, str) and default_value == \"\":\n                 default_string = '\"\"'\n             else:\n                 default_string = str(default_value)\n"
+  },
+  {
+    "id": "RPR-035",
+    "repo": "click",
+    "commit": "2a0e3ba907927ade6951d5732b775f11b54cb766",
+    "short_commit": "2a0e3ba9",
+    "title": "testing/CliRunner: Fix regression related to EOF introduced in 262bdf0 (#2940)",
+    "author": "Rowlando13",
+    "date": "2025-09-12",
+    "files": [
+      "src/click/testing.py"
+    ],
+    "diff": "diff --git a/src/click/testing.py b/src/click/testing.py\nindex 3d3cb17..f6f60b8 100644\n--- a/src/click/testing.py\n+++ b/src/click/testing.py\n@@ -127,13 +127,6 @@ class _NamedTextIOWrapper(io.TextIOWrapper):\n     def mode(self) -> str:\n         return self._mode\n \n-    def __next__(self) -> str:  # type: ignore\n-        try:\n-            line = super().__next__()\n-        except StopIteration as e:\n-            raise EOFError() from e\n-        return line\n-\n \n def make_input_stream(\n     input: str | bytes | t.IO[t.Any] | None, charset: str\n@@ -359,7 +352,10 @@ class CliRunner:\n         @_pause_echo(echo_input)  # type: ignore\n         def visible_input(prompt: str | None = None) -> str:\n             sys.stdout.write(prompt or \"\")\n-            val = next(text_input).rstrip(\"\\r\\n\")\n+            try:\n+                val = next(text_input).rstrip(\"\\r\\n\")\n+            except StopIteration as e:\n+                raise EOFError() from e\n             sys.stdout.write(f\"{val}\\n\")\n             sys.stdout.flush()\n             return val\n@@ -368,7 +364,10 @@ class CliRunner:\n         def hidden_input(prompt: str | None = None) -> str:\n             sys.stdout.write(f\"{prompt or ''}\\n\")\n             sys.stdout.flush()\n-            return next(text_input).rstrip(\"\\r\\n\")\n+            try:\n+                return next(text_input).rstrip(\"\\r\\n\")\n+            except StopIteration as e:\n+                raise EOFError() from e\n \n         @_pause_echo(echo_input)  # type: ignore\n         def _getchar(echo: bool) -> str:\n"
+  },
+  {
+    "id": "RPR-036",
+    "repo": "click",
+    "commit": "dc8e539775aab2b881d90cfd27e815d33df75918",
+    "short_commit": "dc8e5397",
+    "title": "Merge branch 'main' into fix-flag-none-value",
+    "author": "Rowlando13",
+    "date": "2025-08-23",
+    "files": [
+      "src/click/shell_completion.py"
+    ],
+    "diff": "diff --git a/src/click/shell_completion.py b/src/click/shell_completion.py\nindex 5bebb5a..8f1564c 100644\n--- a/src/click/shell_completion.py\n+++ b/src/click/shell_completion.py\n@@ -405,6 +405,8 @@ class FishComplete(ShellComplete):\n     def get_completion_args(self) -> tuple[list[str], str]:\n         cwords = split_arg_string(os.environ[\"COMP_WORDS\"])\n         incomplete = os.environ[\"COMP_CWORD\"]\n+        if incomplete:\n+            incomplete = split_arg_string(incomplete)[0]\n         args = cwords[1:]\n \n         # Fish stores the partial word in both COMP_WORDS and\n"
+  },
+  {
+    "id": "RPR-037",
+    "repo": "click",
+    "commit": "c442c05c315e61b38932e6d25a4e12dfc533882e",
+    "short_commit": "c442c05c",
+    "title": "Rewrap text",
+    "author": "Kevin Deldycke",
+    "date": "2025-08-21",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex 2ad27e6..a182e48 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -2017,9 +2017,8 @@ class Parameter:\n                      should not be set for arguments or it will inverse the\n                      order of processing.\n     :param envvar: environment variable(s) that are used to provide a default value for\n-                   this parameter. This can be a string or a sequence of strings. If a\n-                   sequence is given, only the first non-empty environment variable is\n-                   used for the parameter.\n+        this parameter. This can be a string or a sequence of strings. If a sequence is\n+        given, only the first non-empty environment variable is used for the parameter.\n     :param shell_complete: A function that returns custom shell\n         completions. Used instead of the param's type completion if\n         given. Takes ``ctx, param, incomplete`` and must return a list\n"
+  },
+  {
+    "id": "RPR-038",
+    "repo": "click",
+    "commit": "701b313160be12752e49b3f7cea32402c0969a69",
+    "short_commit": "701b3131",
+    "title": "Fix completions for quoted/escaped parameters in Fish (#3013)",
+    "author": "Hans Lehnert",
+    "date": "2025-08-09",
+    "files": [
+      "src/click/shell_completion.py"
+    ],
+    "diff": "diff --git a/src/click/shell_completion.py b/src/click/shell_completion.py\nindex 5bebb5a..8f1564c 100644\n--- a/src/click/shell_completion.py\n+++ b/src/click/shell_completion.py\n@@ -405,6 +405,8 @@ class FishComplete(ShellComplete):\n     def get_completion_args(self) -> tuple[list[str], str]:\n         cwords = split_arg_string(os.environ[\"COMP_WORDS\"])\n         incomplete = os.environ[\"COMP_CWORD\"]\n+        if incomplete:\n+            incomplete = split_arg_string(incomplete)[0]\n         args = cwords[1:]\n \n         # Fish stores the partial word in both COMP_WORDS and\n"
+  },
+  {
+    "id": "RPR-039",
+    "repo": "click",
+    "commit": "eaf33a957975e7d0943fad8d2b4b905b6bd98cb9",
+    "short_commit": "eaf33a95",
+    "title": "Fix rendering of Enum choices' default (#3004)",
+    "author": "Rowlando13",
+    "date": "2025-07-22",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex 445460b..4bebb77 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -2872,6 +2872,8 @@ class Option(Parameter):\n                 default_string = f\"({self.show_default})\"\n             elif isinstance(default_value, (list, tuple)):\n                 default_string = \", \".join(str(d) for d in default_value)\n+            elif isinstance(default_value, enum.Enum):\n+                default_string = default_value.name\n             elif inspect.isfunction(default_value):\n                 default_string = _(\"(dynamic)\")\n             elif self.is_bool_flag and self.secondary_opts:\n"
+  },
+  {
+    "id": "RPR-040",
+    "repo": "click",
+    "commit": "93c6966eb3a575c2b600434d1cc9f4b3aee505ac",
+    "short_commit": "93c6966e",
+    "title": "testing/CliRunner: Fix regression related to EOF introduced in 262bdf0",
+    "author": "Antoine Lambert",
+    "date": "2025-05-22",
+    "files": [
+      "src/click/testing.py"
+    ],
+    "diff": "diff --git a/src/click/testing.py b/src/click/testing.py\nindex 7c0e874..e57eacc 100644\n--- a/src/click/testing.py\n+++ b/src/click/testing.py\n@@ -116,13 +116,6 @@ class _NamedTextIOWrapper(io.TextIOWrapper):\n     def mode(self) -> str:\n         return self._mode\n \n-    def __next__(self) -> str:  # type: ignore\n-        try:\n-            line = super().__next__()\n-        except StopIteration as e:\n-            raise EOFError() from e\n-        return line\n-\n \n def make_input_stream(\n     input: str | bytes | t.IO[t.Any] | None, charset: str\n@@ -348,7 +341,10 @@ class CliRunner:\n         @_pause_echo(echo_input)  # type: ignore\n         def visible_input(prompt: str | None = None) -> str:\n             sys.stdout.write(prompt or \"\")\n-            val = next(text_input).rstrip(\"\\r\\n\")\n+            try:\n+                val = next(text_input).rstrip(\"\\r\\n\")\n+            except StopIteration as e:\n+                raise EOFError() from e\n             sys.stdout.write(f\"{val}\\n\")\n             sys.stdout.flush()\n             return val\n@@ -357,7 +353,10 @@ class CliRunner:\n         def hidden_input(prompt: str | None = None) -> str:\n             sys.stdout.write(f\"{prompt or ''}\\n\")\n             sys.stdout.flush()\n-            return next(text_input).rstrip(\"\\r\\n\")\n+            try:\n+                return next(text_input).rstrip(\"\\r\\n\")\n+            except StopIteration as e:\n+                raise EOFError() from e\n \n         @_pause_echo(echo_input)  # type: ignore\n         def _getchar(echo: bool) -> str:\n"
+  },
+  {
+    "id": "RPR-041",
+    "repo": "click",
+    "commit": "b7cf06970e40a3144eb963ff34ed7c38934afb40",
+    "short_commit": "b7cf0697",
+    "title": "fix shell completion for nested groups (#2935)",
+    "author": "David Lord",
+    "date": "2025-05-20",
+    "files": [
+      "src/click/shell_completion.py"
+    ],
+    "diff": "diff --git a/src/click/shell_completion.py b/src/click/shell_completion.py\nindex cdb5822..6c39d5e 100644\n--- a/src/click/shell_completion.py\n+++ b/src/click/shell_completion.py\n@@ -567,8 +567,8 @@ def _resolve_context(\n                     with cmd.make_context(\n                         name, args, parent=ctx, resilient_parsing=True\n                     ) as sub_ctx:\n-                        args = ctx._protected_args + ctx.args\n                         ctx = sub_ctx\n+                        args = ctx._protected_args + ctx.args\n                 else:\n                     sub_ctx = ctx\n \n@@ -586,8 +586,8 @@ def _resolve_context(\n                             allow_interspersed_args=False,\n                             resilient_parsing=True,\n                         ) as sub_sub_ctx:\n-                            args = sub_ctx.args\n                             sub_ctx = sub_sub_ctx\n+                            args = sub_ctx.args\n \n                     ctx = sub_ctx\n                     args = [*sub_ctx._protected_args, *sub_ctx.args]\n"
+  },
+  {
+    "id": "RPR-042",
+    "repo": "click",
+    "commit": "ac6a2acfdb4550c35ce69ce54db502ba96c96324",
+    "short_commit": "ac6a2acf",
+    "title": "Fix shell completion for nested groups",
+    "author": "Simon Gerber",
+    "date": "2025-05-12",
+    "files": [
+      "src/click/shell_completion.py"
+    ],
+    "diff": "diff --git a/src/click/shell_completion.py b/src/click/shell_completion.py\nindex cdb5822..6c39d5e 100644\n--- a/src/click/shell_completion.py\n+++ b/src/click/shell_completion.py\n@@ -567,8 +567,8 @@ def _resolve_context(\n                     with cmd.make_context(\n                         name, args, parent=ctx, resilient_parsing=True\n                     ) as sub_ctx:\n-                        args = ctx._protected_args + ctx.args\n                         ctx = sub_ctx\n+                        args = ctx._protected_args + ctx.args\n                 else:\n                     sub_ctx = ctx\n \n@@ -586,8 +586,8 @@ def _resolve_context(\n                             allow_interspersed_args=False,\n                             resilient_parsing=True,\n                         ) as sub_sub_ctx:\n-                            args = sub_ctx.args\n                             sub_ctx = sub_sub_ctx\n+                            args = sub_ctx.args\n \n                     ctx = sub_ctx\n                     args = [*sub_ctx._protected_args, *sub_ctx.args]\n"
+  },
+  {
+    "id": "RPR-043",
+    "repo": "click",
+    "commit": "af73ce4793bf38edf11a16e959ef0d8a0dbf6c1f",
+    "short_commit": "af73ce47",
+    "title": "Fix compatibility with pyright 1.1.394 (#2855)",
+    "author": "David Lord",
+    "date": "2025-05-11",
+    "files": [
+      "src/click/_winconsole.py"
+    ],
+    "diff": "diff --git a/src/click/_winconsole.py b/src/click/_winconsole.py\nindex 566dd9c..e56c7c6 100644\n--- a/src/click/_winconsole.py\n+++ b/src/click/_winconsole.py\n@@ -108,8 +108,9 @@ else:\n         PyObject_GetBuffer(py_object(obj), byref(buf), flags)\n \n         try:\n-            buffer_type: Array[c_char] = c_char * buf.len\n-            return buffer_type.from_address(buf.buf)  # type: ignore[attr-defined, no-any-return]\n+            buffer_type = c_char * buf.len\n+            out: Array[c_char] = buffer_type.from_address(buf.buf)\n+            return out\n         finally:\n             PyBuffer_Release(byref(buf))\n \n"
+  },
+  {
+    "id": "RPR-044",
+    "repo": "click",
+    "commit": "6fec395ea5c63db0a38c768c8c2d7d0c40ae1de4",
+    "short_commit": "6fec395e",
+    "title": "fix pyright findings",
+    "author": "Adam Dangoor",
+    "date": "2025-02-13",
+    "files": [
+      "src/click/_winconsole.py"
+    ],
+    "diff": "diff --git a/src/click/_winconsole.py b/src/click/_winconsole.py\nindex 566dd9c..e56c7c6 100644\n--- a/src/click/_winconsole.py\n+++ b/src/click/_winconsole.py\n@@ -108,8 +108,9 @@ else:\n         PyObject_GetBuffer(py_object(obj), byref(buf), flags)\n \n         try:\n-            buffer_type: Array[c_char] = c_char * buf.len\n-            return buffer_type.from_address(buf.buf)  # type: ignore[attr-defined, no-any-return]\n+            buffer_type = c_char * buf.len\n+            out: Array[c_char] = buffer_type.from_address(buf.buf)\n+            return out\n         finally:\n             PyBuffer_Release(byref(buf))\n \n"
+  },
+  {
+    "id": "RPR-045",
+    "repo": "click",
+    "commit": "fde47b4b4f978f179b9dff34583cb2b99021f482",
+    "short_commit": "fde47b4b",
+    "title": "Fix issues previously type ignored.",
+    "author": "Andreas Backx",
+    "date": "2024-11-09",
+    "files": [
+      "src/click/_compat.py",
+      "src/click/_termui_impl.py"
+    ],
+    "diff": "diff --git a/src/click/_compat.py b/src/click/_compat.py\nindex 9e14ace..feb8366 100644\n--- a/src/click/_compat.py\n+++ b/src/click/_compat.py\n@@ -129,7 +129,7 @@ class _FixupStream:\n         if x is not None:\n             return t.cast(bool, x())\n         try:\n-            self._stream.write(\"\")  # type: ignore\n+            self._stream.write(b\"\")\n         except Exception:\n             try:\n                 self._stream.write(b\"\")\ndiff --git a/src/click/_termui_impl.py b/src/click/_termui_impl.py\nindex 24dec54..a6c7e6b 100644\n--- a/src/click/_termui_impl.py\n+++ b/src/click/_termui_impl.py\n@@ -251,9 +251,9 @@ class ProgressBar(t.Generic[V]):\n             self.width = 0\n             clutter_length = term_len(self.format_progress_line())\n             new_width = max(0, shutil.get_terminal_size().columns - clutter_length)\n-            if new_width < old_width:\n+            if new_width < old_width and self.max_width is not None:\n                 buf.append(BEFORE_BAR)\n-                buf.append(\" \" * self.max_width)  # type: ignore\n+                buf.append(\" \" * self.max_width)\n                 self.max_width = new_width\n             self.width = new_width\n \n"
+  },
+  {
+    "id": "RPR-046",
+    "repo": "click",
+    "commit": "4d7ce025cfc7a94d0c4b388ea3d7c565c0e28d9d",
+    "short_commit": "4d7ce025",
+    "title": "fix mypy findings",
+    "author": "David Lord",
+    "date": "2024-08-23",
+    "files": [
+      "src/click/core.py",
+      "src/click/decorators.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex 3da80c3..8d9d995 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -1600,7 +1600,7 @@ class MultiCommand(Command):\n                 return f(inner, *args, **kwargs)\n \n             self._result_callback = rv = update_wrapper(t.cast(F, function), f)\n-            return rv\n+            return rv  # type: ignore[return-value]\n \n         return decorator\n \ndiff --git a/src/click/decorators.py b/src/click/decorators.py\nindex a1ec906..c346c70 100644\n--- a/src/click/decorators.py\n+++ b/src/click/decorators.py\n@@ -93,7 +93,7 @@ def make_pass_decorator(\n \n         return update_wrapper(new_func, f)\n \n-    return decorator  # type: ignore[return-value]\n+    return decorator\n \n \n def pass_meta_key(\n@@ -126,7 +126,7 @@ def pass_meta_key(\n         f\"Decorator that passes {doc_description} as the first argument\"\n         \" to the decorated function.\"\n     )\n-    return decorator  # type: ignore[return-value]\n+    return decorator\n \n \n CmdType = t.TypeVar(\"CmdType\", bound=Command)\n"
+  },
+  {
+    "id": "RPR-047",
+    "repo": "click",
+    "commit": "9c5e989d52509498ce78a4015ebc7d9408f70c56",
+    "short_commit": "9c5e989d",
+    "title": "remove suffixes from generated command name (#2604)",
+    "author": "David Lord",
+    "date": "2023-09-01",
+    "files": [
+      "src/click/decorators.py"
+    ],
+    "diff": "diff --git a/src/click/decorators.py b/src/click/decorators.py\nindex fe6ae6a..892d807 100644\n--- a/src/click/decorators.py\n+++ b/src/click/decorators.py\n@@ -178,9 +178,10 @@ def command(\n     callback.  This will also automatically attach all decorated\n     :func:`option`\\s and :func:`argument`\\s as parameters to the command.\n \n-    The name of the command defaults to the name of the function with\n-    underscores replaced by dashes.  If you want to change that, you can\n-    pass the intended name as the first argument.\n+    The name of the command defaults to the name of the function, converted to\n+    lowercase, with underscores ``_`` replaced by dashes ``-``, and the suffixes\n+    ``_command``, ``_cmd``, ``_group``, and ``_grp`` are removed. For example,\n+    ``init_data_command`` becomes ``init-data``.\n \n     All keyword arguments are forwarded to the underlying command class.\n     For the ``params`` argument, any decorated params are appended to\n@@ -190,10 +191,13 @@ def command(\n     that can be invoked as a command line utility or be attached to a\n     command :class:`Group`.\n \n-    :param name: the name of the command.  This defaults to the function\n-                 name with underscores replaced by dashes.\n-    :param cls: the command class to instantiate.  This defaults to\n-                :class:`Command`.\n+    :param name: The name of the command. Defaults to modifying the function's\n+        name as described above.\n+    :param cls: The command class to create. Defaults to :class:`Command`.\n+\n+    .. versionchanged:: 8.2\n+        The suffixes ``_command``, ``_cmd``, ``_group``, and ``_grp`` are\n+        removed when generating the name.\n \n     .. versionchanged:: 8.1\n         This decorator can be applied without parentheses.\n@@ -236,12 +240,16 @@ def command(\n             assert cls is not None\n             assert not callable(name)\n \n-        cmd = cls(\n-            name=name or f.__name__.lower().replace(\"_\", \"-\"),\n-            callback=f,\n-            params=params,\n-            **attrs,\n-        )\n+        if name is not None:\n+            cmd_name = name\n+        else:\n+            cmd_name = f.__name__.lower().replace(\"_\", \"-\")\n+            cmd_left, sep, suffix = cmd_name.rpartition(\"-\")\n+\n+            if sep and suffix in {\"command\", \"cmd\", \"group\", \"grp\"}:\n+                cmd_name = cmd_left\n+\n+        cmd = cls(name=cmd_name, callback=f, params=params, **attrs)\n         cmd.__doc__ = f.__doc__\n         return cmd\n \n"
+  },
+  {
+    "id": "RPR-048",
+    "repo": "click",
+    "commit": "149683755e07b62de7480b3a60a714f0a8b6618f",
+    "short_commit": "14968375",
+    "title": "remove suffixes from generated command name",
+    "author": "David Lord",
+    "date": "2023-09-01",
+    "files": [
+      "src/click/decorators.py"
+    ],
+    "diff": "diff --git a/src/click/decorators.py b/src/click/decorators.py\nindex fe6ae6a..892d807 100644\n--- a/src/click/decorators.py\n+++ b/src/click/decorators.py\n@@ -178,9 +178,10 @@ def command(\n     callback.  This will also automatically attach all decorated\n     :func:`option`\\s and :func:`argument`\\s as parameters to the command.\n \n-    The name of the command defaults to the name of the function with\n-    underscores replaced by dashes.  If you want to change that, you can\n-    pass the intended name as the first argument.\n+    The name of the command defaults to the name of the function, converted to\n+    lowercase, with underscores ``_`` replaced by dashes ``-``, and the suffixes\n+    ``_command``, ``_cmd``, ``_group``, and ``_grp`` are removed. For example,\n+    ``init_data_command`` becomes ``init-data``.\n \n     All keyword arguments are forwarded to the underlying command class.\n     For the ``params`` argument, any decorated params are appended to\n@@ -190,10 +191,13 @@ def command(\n     that can be invoked as a command line utility or be attached to a\n     command :class:`Group`.\n \n-    :param name: the name of the command.  This defaults to the function\n-                 name with underscores replaced by dashes.\n-    :param cls: the command class to instantiate.  This defaults to\n-                :class:`Command`.\n+    :param name: The name of the command. Defaults to modifying the function's\n+        name as described above.\n+    :param cls: The command class to create. Defaults to :class:`Command`.\n+\n+    .. versionchanged:: 8.2\n+        The suffixes ``_command``, ``_cmd``, ``_group``, and ``_grp`` are\n+        removed when generating the name.\n \n     .. versionchanged:: 8.1\n         This decorator can be applied without parentheses.\n@@ -236,12 +240,16 @@ def command(\n             assert cls is not None\n             assert not callable(name)\n \n-        cmd = cls(\n-            name=name or f.__name__.lower().replace(\"_\", \"-\"),\n-            callback=f,\n-            params=params,\n-            **attrs,\n-        )\n+        if name is not None:\n+            cmd_name = name\n+        else:\n+            cmd_name = f.__name__.lower().replace(\"_\", \"-\")\n+            cmd_left, sep, suffix = cmd_name.rpartition(\"-\")\n+\n+            if sep and suffix in {\"command\", \"cmd\", \"group\", \"grp\"}:\n+                cmd_name = cmd_left\n+\n+        cmd = cls(name=cmd_name, callback=f, params=params, **attrs)\n         cmd.__doc__ = f.__doc__\n         return cmd\n \n"
+  },
+  {
+    "id": "RPR-049",
+    "repo": "click",
+    "commit": "df9ad4085d60710b507b54c8fc369ee186eb1d64",
+    "short_commit": "df9ad408",
+    "title": "fix zsh completion loaded from fpath (#2544)",
+    "author": "David Lord",
+    "date": "2023-06-30",
+    "files": [
+      "src/click/shell_completion.py"
+    ],
+    "diff": "diff --git a/src/click/shell_completion.py b/src/click/shell_completion.py\nindex bb3e48e..731be65 100644\n--- a/src/click/shell_completion.py\n+++ b/src/click/shell_completion.py\n@@ -157,7 +157,13 @@ _SOURCE_ZSH = \"\"\"\\\n     fi\n }\n \n-compdef %(complete_func)s %(prog_name)s;\n+if [[ $zsh_eval_context[-1] == loadautofunc ]]; then\n+    # autoload from fpath, call function directly\n+    %(complete_func)s \"$@\"\n+else\n+    # eval/source/. command, register function for later\n+    compdef %(complete_func)s %(prog_name)s\n+fi\n \"\"\"\n \n _SOURCE_FISH = \"\"\"\\\n"
+  },
+  {
+    "id": "RPR-050",
+    "repo": "click",
+    "commit": "aa4a38e9aa6970e29942ce3beecdac833f30bdb3",
+    "short_commit": "aa4a38e9",
+    "title": "fix zsh completion loaded from fpath",
+    "author": "David Lord",
+    "date": "2023-06-30",
+    "files": [
+      "src/click/shell_completion.py"
+    ],
+    "diff": "diff --git a/src/click/shell_completion.py b/src/click/shell_completion.py\nindex bb3e48e..731be65 100644\n--- a/src/click/shell_completion.py\n+++ b/src/click/shell_completion.py\n@@ -157,7 +157,13 @@ _SOURCE_ZSH = \"\"\"\\\n     fi\n }\n \n-compdef %(complete_func)s %(prog_name)s;\n+if [[ $zsh_eval_context[-1] == loadautofunc ]]; then\n+    # autoload from fpath, call function directly\n+    %(complete_func)s \"$@\"\n+else\n+    # eval/source/. command, register function for later\n+    compdef %(complete_func)s %(prog_name)s\n+fi\n \"\"\"\n \n _SOURCE_FISH = \"\"\"\\\n"
+  },
+  {
+    "id": "RPR-051",
+    "repo": "click",
+    "commit": "a825ebd79c124022da43694477e24534c46b4f59",
+    "short_commit": "a825ebd7",
+    "title": "Fix help output for Shiv and PEX (#2333)",
+    "author": "David Lord",
+    "date": "2023-06-30",
+    "files": [
+      "src/click/utils.py"
+    ],
+    "diff": "diff --git a/src/click/utils.py b/src/click/utils.py\nindex 8c01216..6e74ace 100644\n--- a/src/click/utils.py\n+++ b/src/click/utils.py\n@@ -523,7 +523,8 @@ def _detect_program_name(\n     # The value of __package__ indicates how Python was called. It may\n     # not exist if a setuptools script is installed as an egg. It may be\n     # set incorrectly for entry points created with pip on Windows.\n-    if getattr(_main, \"__package__\", None) is None or (\n+    # It is set to \"\" inside a Shiv or PEX zipapp.\n+    if getattr(_main, \"__package__\", None) in {None, \"\"} or (\n         os.name == \"nt\"\n         and _main.__package__ == \"\"\n         and not os.path.exists(path)\n"
+  },
+  {
+    "id": "RPR-052",
+    "repo": "click",
+    "commit": "eb1d760fb433d08278816d7ba49477ce86b691a7",
+    "short_commit": "eb1d760f",
+    "title": "fix minor typo in `make_context` docs (#2381)",
+    "author": "Régis Behmo",
+    "date": "2023-05-07",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex f61c464..e2412bb 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -916,7 +916,7 @@ class BaseCommand:\n         :param info_name: the info name for this invocation.  Generally this\n                           is the most descriptive name for the script or\n                           command.  For the toplevel script it's usually\n-                          the name of the script, for commands below it it's\n+                          the name of the script, for commands below it's\n                           the name of the command.\n         :param args: the arguments to parse as list of strings.\n         :param parent: the parent context if available.\n"
+  },
+  {
+    "id": "RPR-053",
+    "repo": "click",
+    "commit": "fceeed14cfddade189ff653a49f5c4f77556de7f",
+    "short_commit": "fceeed14",
+    "title": "Fix typo (#2470)",
+    "author": "David Lord",
+    "date": "2023-03-20",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex 6164cf3..bdb4b96 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -2003,7 +2003,7 @@ class Parameter:\n                         argument.  This is a list of flags or argument\n                         names.\n     :param type: the type that should be used.  Either a :class:`ParamType`\n-                 or a Python type.  The later is converted into the former\n+                 or a Python type.  The latter is converted into the former\n                  automatically if supported.\n     :param required: controls if this is optional or not.\n     :param default: the default value if omitted.  This can also be a callable,\n"
+  },
+  {
+    "id": "RPR-054",
+    "repo": "click",
+    "commit": "292a27d7052b085fa40dba55f850279c490f1c6b",
+    "short_commit": "292a27d7",
+    "title": "Fix typo",
+    "author": "Kurt McKee",
+    "date": "2023-03-20",
+    "files": [
+      "src/click/core.py"
+    ],
+    "diff": "diff --git a/src/click/core.py b/src/click/core.py\nindex 6164cf3..bdb4b96 100644\n--- a/src/click/core.py\n+++ b/src/click/core.py\n@@ -2003,7 +2003,7 @@ class Parameter:\n                         argument.  This is a list of flags or argument\n                         names.\n     :param type: the type that should be used.  Either a :class:`ParamType`\n-                 or a Python type.  The later is converted into the former\n+                 or a Python type.  The latter is converted into the former\n                  automatically if supported.\n     :param required: controls if this is optional or not.\n     :param default: the default value if omitted.  This can also be a callable,\n"
+  },
+  {
+    "id": "RPR-055",
+    "repo": "click",
+    "commit": "73d7de5f7423eab0673935a5120c65a27fd2804c",
+    "short_commit": "73d7de5f",
+    "title": "Fix versionchanged entry for click.Path (#2345)",
+    "author": "Hynek Schlawack",
+    "date": "2022-09-14",
+    "files": [
+      "src/click/types.py"
+    ],
+    "diff": "diff --git a/src/click/types.py b/src/click/types.py\nindex b45ee53..d948c70 100644\n--- a/src/click/types.py\n+++ b/src/click/types.py\n@@ -777,7 +777,7 @@ class Path(ParamType):\n         Added the ``executable`` parameter.\n \n     .. versionchanged:: 8.0\n-        Allow passing ``type=pathlib.Path``.\n+        Allow passing ``path_type=pathlib.Path``.\n \n     .. versionchanged:: 6.0\n         Added the ``allow_dash`` parameter.\n"
+  },
+  {
+    "id": "RPR-056",
+    "repo": "click",
+    "commit": "deb1f0e1d736774ae17ce423ba452de937ffa402",
+    "short_commit": "deb1f0e1",
+    "title": "Merge pull request #2158 from unparalleled-js/fix/allow-empty-when-confirmation-required",
+    "author": "David Lord",
+    "date": "2022-02-21",
+    "files": [
+      "src/click/termui.py"
+    ],
+    "diff": "diff --git a/src/click/termui.py b/src/click/termui.py\nindex 6645299..bfb2f5a 100644\n--- a/src/click/termui.py\n+++ b/src/click/termui.py\n@@ -181,7 +181,8 @@ def prompt(\n             return result\n         while True:\n             value2 = prompt_func(confirmation_prompt)\n-            if value2:\n+            is_empty = not value and not value2\n+            if value2 or is_empty:\n                 break\n         if value == value2:\n             return result\n"
+  },
+  {
+    "id": "RPR-057",
+    "repo": "marshmallow",
+    "commit": "5761beab3985d654d712f9326e08bfb2e2ec9c4c",
+    "short_commit": "5761beab",
+    "title": "Fix Pluck handling of empty data_key",
+    "author": "Jérôme Lafréchoux",
+    "date": "2026-10-18",
+    "files": [
+      "src/marshmallow/fields.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py\nindex 4149a25..52af41d 100644\n--- a/src/marshmallow/fields.py\n+++ b/src/marshmallow/fields.py\n@@ -710,7 +710,9 @@ class Pluck(Nested):\n     @property\n     def _field_data_key(self) -> str:\n         only_field = self.schema.fields[self.field_name]\n-        return only_field.data_key or self.field_name\n+        return (\n+            only_field.data_key if only_field.data_key is not None else self.field_name\n+        )\n \n     def _serialize(self, nested_obj, attr, obj, **kwargs):\n         ret = super()._serialize(nested_obj, attr, obj, **kwargs)\n"
+  },
+  {
+    "id": "RPR-058",
+    "repo": "marshmallow",
+    "commit": "6ae09656078a1ae21a011199bbbdbeccabbc5754",
+    "short_commit": "6ae09656",
+    "title": "Fix minor doc typos",
+    "author": "Jérôme Lafréchoux",
+    "date": "2026-09-11",
+    "files": [
+      "src/marshmallow/schema.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py\nindex ade0cab..f68da9d 100644\n--- a/src/marshmallow/schema.py\n+++ b/src/marshmallow/schema.py\n@@ -531,7 +531,7 @@ class Schema(metaclass=SchemaMeta):\n         \"\"\"Serialize ``obj``.\n \n         :param obj: The object(s) to serialize.\n-        :param many: `True` if ``data`` should be serialized as a collection.\n+        :param many: `True` if ``obj`` should be serialized as a collection.\n         :return: A dictionary of the serialized data\n         \"\"\"\n         if many and obj is not None:\n@@ -615,8 +615,8 @@ class Schema(metaclass=SchemaMeta):\n             will be ignored. Use dot delimiters to specify nested fields.\n         :param unknown: Whether to exclude, include, or raise an error for unknown\n             fields in the data. Use `EXCLUDE`, `INCLUDE` or `RAISE`.\n-        :param index: Index of the item being serialized (for storing errors) if\n-            serializing a collection, otherwise `None`.\n+        :param index: Index of the item being deserialized (for storing errors) if\n+            deserializing a collection, otherwise `None`.\n         :return: The deserialized data as `dict_class` instance or list of `dict_class`\n         instances if `many` is `True`.\n         \"\"\"\n"
+  },
+  {
+    "id": "RPR-059",
+    "repo": "marshmallow",
+    "commit": "324f387b023d5f94cab847f6ce702f684e908700",
+    "short_commit": "324f387b",
+    "title": "Various docstring fixes (#3034)",
+    "author": "Jérôme Lafréchoux",
+    "date": "2026-08-26",
+    "files": [
+      "src/marshmallow/class_registry.py",
+      "src/marshmallow/decorators.py",
+      "src/marshmallow/fields.py",
+      "src/marshmallow/schema.py",
+      "src/marshmallow/utils.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/class_registry.py b/src/marshmallow/class_registry.py\nindex 6c02f9c..d2bedf7 100644\n--- a/src/marshmallow/class_registry.py\n+++ b/src/marshmallow/class_registry.py\n@@ -1,6 +1,6 @@\n \"\"\"A registry of :class:`Schema <marshmallow.Schema>` classes. This allows for string\n lookup of schemas, which may be used with\n-class:`fields.Nested <marshmallow.fields.Nested>`.\n+:class:`fields.Nested <marshmallow.fields.Nested>`.\n \n .. warning::\n \ndiff --git a/src/marshmallow/decorators.py b/src/marshmallow/decorators.py\nindex 7b4af4b..d98d2ef 100644\n--- a/src/marshmallow/decorators.py\n+++ b/src/marshmallow/decorators.py\n@@ -142,7 +142,7 @@ def pre_dump(\n     argument passed to the `Schema <marshmallow.Schema>`'s :func:`~marshmallow.Schema.dump` call.\n     If ``pass_collection=True``, the raw data (which may be a collection) is passed.\n \n-    .. versionchanged:: 3.0.0 ``many`` is always passed as a keyword arguments to the decorated method.\n+    .. versionchanged:: 3.0.0 ``many`` is always passed as a keyword argument to the decorated method.\n     .. versionchanged:: 4.0.0 ``pass_many`` is renamed to ``pass_collection``.\n     .. versionchanged:: 4.0.0 ``pass_collection`` is a keyword-only argument.\n     \"\"\"\n@@ -165,7 +165,7 @@ def post_dump(\n     If ``pass_original=True``, the original data (before serializing) will be passed as\n     an additional argument to the method.\n \n-    .. versionchanged:: 3.0.0 ``many`` is always passed as a keyword arguments to the decorated method.\n+    .. versionchanged:: 3.0.0 ``many`` is always passed as a keyword argument to the decorated method.\n     .. versionchanged:: 4.0.0 ``pass_many`` is renamed to ``pass_collection``.\n     .. versionchanged:: 4.0.0 ``pass_collection`` and ``pass_original`` are keyword-only arguments.\n     \"\"\"\ndiff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py\nindex 69e8dbb..4149a25 100644\n--- a/src/marshmallow/fields.py\n+++ b/src/marshmallow/fields.py\n@@ -162,7 +162,7 @@ class Field(typing.Generic[_InternalT]):\n     :param metadata: Extra information to be stored as field metadata.\n \n     .. versionchanged:: 3.0.0b8\n-        Add ``data_key`` parameter for the specifying the key in the input and\n+        Add ``data_key`` parameter for specifying the key in the input and\n         output data. This parameter replaced both ``load_from`` and ``dump_to``.\n     .. versionchanged:: 3.13.0\n         Replace ``missing`` and ``default`` parameters with ``load_default`` and ``dump_default``.\n@@ -402,7 +402,7 @@ class Field(typing.Generic[_InternalT]):\n \n     def _bind_to_schema(self, field_name: str, parent: Schema | Field) -> None:\n         \"\"\"Update field with values from its parent schema. Called by\n-                `Schema._bind_field <marshmallow.Schema._bind_field>`.\n+        `Schema._bind_field <marshmallow.Schema._bind_field>`.\n \n         :param field_name: Field name set in schema.\n         :param parent: Parent object.\n@@ -523,7 +523,7 @@ class Nested(Field):\n     :param many: Whether the field is a collection of objects.\n         If `None` (default), and nested `Schema` instance is provided, ``many`` is not overridden.\n         If `None` (default), and `Schema` subclass is provided, schema instance sets ``many`` as False.\n-        If `True | False` nested `[nested_field].schema.many` is overridden.\n+        If `True | False`, nested `[nested_field].schema.many` is overridden.\n     :param unknown: Whether to exclude, include, or raise an error for unknown\n         fields in the data. Use `EXCLUDE`, `INCLUDE` or `RAISE`.\n     :param kwargs: The same keyword arguments that :class:`Field` receives.\n@@ -797,7 +797,7 @@ class List(Field[list[_InternalT | None]]):\n \n class Tuple(Field[tuple]):\n     \"\"\"A tuple field, composed of a fixed number of other `Field` classes or\n-    instances\n+    instances.\n \n     Example: ::\n \n@@ -1395,7 +1395,7 @@ class AwareDateTime(DateTime):\n \n     :param format: See :class:`DateTime`.\n     :param default_timezone: Used on deserialization. If `None`, naive\n-        datetimes are rejected. If not `None`, naive datetimes are set this\n+        datetimes are rejected. If not `None`, naive datetimes are set to this\n         timezone.\n     :param kwargs: The same keyword arguments that :class:`Field` receives.\n \n@@ -1505,7 +1505,7 @@ class TimeDelta(Field[dt.timedelta]):\n     Float Caveats\n     -------------\n     Precision loss may occur when serializing a highly precise :class:`datetime.timedelta`\n-    object using a big ``precision`` unit due to floating point arithmetics.\n+    object using a big ``precision`` unit due to floating-point arithmetic.\n \n     When necessary, the :class:`datetime.timedelta` constructor rounds `float` inputs\n     to whole microseconds during initialization of the object. As a result, deserializing\n@@ -1805,7 +1805,7 @@ class Email(String):\n \n \n class IP(Field[ipaddress.IPv4Address | ipaddress.IPv6Address]):\n-    \"\"\"A IP address field.\n+    \"\"\"An IP address field.\n \n     :param exploded: If `True`, serialize ipv6 address in long form, ie. with groups\n         consisting entirely of zeros included.\n@@ -1840,7 +1840,7 @@ class IP(Field[ipaddress.IPv4Address | ipaddress.IPv6Address]):\n \n \n class IPv4(IP):\n-    \"\"\"A IPv4 address field.\n+    \"\"\"An IPv4 address field.\n \n     .. versionadded:: 3.8.0\n     \"\"\"\n@@ -1851,7 +1851,7 @@ class IPv4(IP):\n \n \n class IPv6(IP):\n-    \"\"\"A IPv6 address field.\n+    \"\"\"An IPv6 address field.\n \n     .. versionadded:: 3.8.0\n     \"\"\"\n@@ -1862,7 +1862,7 @@ class IPv6(IP):\n \n \n class IPInterface(Field[ipaddress.IPv4Interface | ipaddress.IPv6Interface]):\n-    \"\"\"A IPInterface field.\n+    \"\"\"An IPInterface field.\n \n     IP interface is the non-strict form of the IPNetwork type where arbitrary host\n     addresses are always accepted.\n@@ -1902,7 +1902,7 @@ class IPInterface(Field[ipaddress.IPv4Interface | ipaddress.IPv6Interface]):\n \n \n class IPv4Interface(IPInterface):\n-    \"\"\"A IPv4 Network Interface field.\"\"\"\n+    \"\"\"An IPv4 Network Interface field.\"\"\"\n \n     default_error_messages = {\"invalid_ip_interface\": \"Not a valid IPv4 interface.\"}\n \n@@ -1910,7 +1910,7 @@ class IPv4Interface(IPInterface):\n \n \n class IPv6Interface(IPInterface):\n-    \"\"\"A IPv6 Network Interface field.\"\"\"\n+    \"\"\"An IPv6 Network Interface field.\"\"\"\n \n     default_error_messages = {\"invalid_ip_interface\": \"Not a valid IPv6 interface.\"}\n \n@@ -2008,7 +2008,7 @@ class Method(Field):\n         to retrieve the value. The method must take an argument ``obj``\n         (in addition to self) that is the object to be serialized.\n     :param deserialize: Optional name of the Schema method for deserializing\n-        a value The method must take a single argument ``value``, which is the\n+        a value. The method must take a single argument ``value``, which is the\n         value to deserialize.\n \n     .. versionchanged:: 3.0.0\n@@ -2062,12 +2062,12 @@ class Function(Field):\n     :param serialize: A callable from which to retrieve the value.\n         The function must take a single argument ``obj`` which is the object\n         to be serialized.\n-        If no callable is provided then the ```load_only``` flag will be set\n+        If no callable is provided then the ``load_only`` flag will be set\n         to True.\n     :param deserialize: A callable from which to retrieve the value.\n         The function must take a single argument ``value`` which is the value\n         to be deserialized.\n-        If no callable is provided then ```value``` will be passed through\n+        If no callable is provided then ``value`` will be passed through\n         unchanged.\n \n     .. versionchanged:: 3.0.0a1\ndiff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py\nindex 8024dfe..ade0cab 100644\n--- a/src/marshmallow/schema.py\n+++ b/src/marshmallow/schema.py\n@@ -145,7 +145,7 @@ class SchemaMeta(ABCMeta):\n         :param cls_fields: The fields declared on the class, including those added\n             by the ``include`` `class Meta <marshmallow.Schema.Meta>` option.\n         :param inherited_fields: Inherited fields.\n-        :param dict_cls: dict-like class to use for dict output Default to ``dict``.\n+        :param dict_cls: dict-like class to use for dict output. Defaults to ``dict``.\n         \"\"\"\n         return dict_cls(inherited_fields + cls_fields)\n \n@@ -855,13 +855,13 @@ class Schema(metaclass=SchemaMeta):\n         :param many: Whether to deserialize `data` as a collection. If `None`, the\n             value for `self.many` is used.\n         :param partial: Whether to validate required fields. If its\n-            value is an iterable, only fields listed in that iterable will be\n-            ignored will be allowed missing. If `True`, all fields will be allowed missing.\n+            value is an iterable, only fields listed in that iterable\n+            will be allowed missing. If `True`, all fields will be allowed missing.\n             If `None`, the value for `self.partial` is used.\n         :param unknown: Whether to exclude, include, or raise an error for unknown\n             fields in the data. Use `EXCLUDE`, `INCLUDE` or `RAISE`.\n             If `None`, the value for `self.unknown` is used.\n-        :param postprocess: Whether to run post_load methods..\n+        :param postprocess: Whether to run post_load methods.\n         :return: Deserialized data\n         \"\"\"\n         error_store = ErrorStore()\ndiff --git a/src/marshmallow/utils.py b/src/marshmallow/utils.py\nindex cd2d352..639dc65 100644\n--- a/src/marshmallow/utils.py\n+++ b/src/marshmallow/utils.py\n@@ -11,7 +11,7 @@ from marshmallow.constants import missing\n \n \n def is_generator(obj) -> typing.TypeGuard[typing.Generator]:\n-    \"\"\"Return True if ``obj`` is a generator\"\"\"\n+    \"\"\"Return True if ``obj`` is a generator.\"\"\"\n     return inspect.isgeneratorfunction(obj) or inspect.isgenerator(obj)\n \n \n@@ -26,7 +26,7 @@ def is_sequence_but_not_string(obj) -> typing.TypeGuard[Sequence]:\n \n \n def is_collection(obj) -> typing.TypeGuard[typing.Iterable]:\n-    \"\"\"Return True if ``obj`` is a collection type, e.g list, tuple, queryset.\"\"\"\n+    \"\"\"Return True if ``obj`` is a collection type, e.g. list, tuple, queryset.\"\"\"\n     return is_iterable_but_not_string(obj) and not isinstance(obj, Mapping)\n \n \n@@ -125,7 +125,7 @@ def _get_value_for_key(obj, key, default):\n \n def set_value(dct: dict[str, typing.Any], key: str, value: typing.Any):\n     \"\"\"Set a value in a dict. If `key` contains a '.', it is assumed\n-    be a path (i.e. dot-delimited string) to the value's location.\n+    to be a path (i.e. dot-delimited string) to the value's location.\n \n     ::\n \n"
+  },
+  {
+    "id": "RPR-060",
+    "repo": "marshmallow",
+    "commit": "902f99c4151d1f0c4c3b8e8dfbafc7b6a76aeaa6",
+    "short_commit": "902f99c4",
+    "title": "Fix URL validator rejecting a fragment after an empty path (#3016)",
+    "author": "Haïm Dimer",
+    "date": "2026-08-08",
+    "files": [
+      "src/marshmallow/validate.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py\nindex 3463a47..35c0e8b 100644\n--- a/src/marshmallow/validate.py\n+++ b/src/marshmallow/validate.py\n@@ -157,7 +157,7 @@ class URL(Validator):\n                     r\"(?::\\d+)?\",\n                 )\n             )\n-            relative_part = r\"(?:/?|[/?]\\S+)\\Z\"\n+            relative_part = r\"(?:/?|[/?#]\\S+)\\Z\"\n \n             if relative:\n                 if absolute:\n"
+  },
+  {
+    "id": "RPR-061",
+    "repo": "marshmallow",
+    "commit": "256f0aabbc18232219e33854999372cfe1643f52",
+    "short_commit": "256f0aab",
+    "title": "Add pre/post_load parameters to Field (#2799)",
+    "author": "Steven Loria",
+    "date": "2026-04-03",
+    "files": [
+      "src/marshmallow/fields.py",
+      "src/marshmallow/types.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py\nindex fe8a868..e6c7366 100644\n--- a/src/marshmallow/fields.py\n+++ b/src/marshmallow/fields.py\n@@ -82,6 +82,10 @@ __all__ = [\n ]\n \n _InternalT = typing.TypeVar(\"_InternalT\")\n+_ProcessorT = typing.TypeVar(\n+    \"_ProcessorT\",\n+    bound=types.PostLoadCallable | types.PreLoadCallable | types.Validator,\n+)\n \n \n class _BaseFieldKwargs(typing.TypedDict, total=False):\n@@ -90,6 +94,8 @@ class _BaseFieldKwargs(typing.TypedDict, total=False):\n     data_key: str | None\n     attribute: str | None\n     validate: types.Validator | typing.Iterable[types.Validator] | None\n+    pre_load: types.PreLoadCallable | typing.Iterable[types.PreLoadCallable] | None\n+    post_load: types.PostLoadCallable | typing.Iterable[types.PostLoadCallable] | None\n     required: bool\n     allow_none: bool | None\n     load_only: bool\n@@ -135,6 +141,12 @@ class Field(typing.Generic[_InternalT]):\n         during deserialization. Validator takes a field's input value as\n         its only parameter and returns a boolean.\n         If it returns `False`, an :exc:`ValidationError` is raised.\n+    :param pre_load: Callable or collection of callables that are applied to the\n+        raw input value before deserialization. Each callable receives the value\n+        and returns a transformed value.\n+    :param post_load: Callable or collection of callables that are applied to the\n+        deserialized value after validation. Each callable receives the value\n+        and returns a transformed value.\n     :param required: Raise a :exc:`ValidationError` if the field value\n         is not supplied during deserialization.\n     :param allow_none: Set this to `True` if `None` should be considered a valid value during\n@@ -159,6 +171,8 @@ class Field(typing.Generic[_InternalT]):\n         Use `Raw <marshmallow.fields.Raw>` or another `Field <marshmallow.fields.Field>` subclass instead.\n     .. versionchanged:: 4.0.0\n         Remove ``context`` property.\n+    .. versionchanged:: 4.3.0\n+        Add ``pre_load`` and ``post_load``.\n     \"\"\"\n \n     # Some fields, such as Method fields and Function fields, are not expected\n@@ -183,6 +197,12 @@ class Field(typing.Generic[_InternalT]):\n         data_key: str | None = None,\n         attribute: str | None = None,\n         validate: types.Validator | typing.Iterable[types.Validator] | None = None,\n+        pre_load: (\n+            types.PreLoadCallable | typing.Iterable[types.PreLoadCallable] | None\n+        ) = None,\n+        post_load: (\n+            types.PostLoadCallable | typing.Iterable[types.PostLoadCallable] | None\n+        ) = None,\n         required: bool = False,\n         allow_none: bool | None = None,\n         load_only: bool = False,\n@@ -196,17 +216,9 @@ class Field(typing.Generic[_InternalT]):\n         self.attribute = attribute\n         self.data_key = data_key\n         self.validate = validate\n-        if validate is None:\n-            self.validators = []\n-        elif callable(validate):\n-            self.validators = [validate]\n-        elif utils.is_iterable_but_not_string(validate):\n-            self.validators = list(validate)\n-        else:\n-            raise ValueError(\n-                \"The 'validate' parameter must be a callable \"\n-                \"or a collection of callables.\"\n-            )\n+        self.validators = self._normalize_processors(validate, param=\"validate\")\n+        self.pre_load = self._normalize_processors(pre_load, param=\"pre_load\")\n+        self.post_load = self._normalize_processors(post_load, param=\"post_load\")\n \n         # If allow_none is None and load_default is None\n         # None should be considered valid by default\n@@ -369,10 +381,21 @@ class Field(typing.Generic[_InternalT]):\n         if value is missing_:\n             _miss = self.load_default\n             return _miss() if callable(_miss) else _miss\n+\n+        # Apply pre_load functions\n+        for func in self.pre_load:\n+            value = func(value)\n+\n         if self.allow_none and value is None:\n             return None\n+\n         output = self._deserialize(value, attr, data, **kwargs)\n+        # Apply validators\n         self._validate(output)\n+\n+        # Apply post_load functions\n+        for func in self.post_load:\n+            output = func(output)\n         return output\n \n     # Methods for concrete classes to override.\n@@ -433,6 +456,22 @@ class Field(typing.Generic[_InternalT]):\n         \"\"\"\n         return value\n \n+    @staticmethod\n+    def _normalize_processors(\n+        processors: _ProcessorT | typing.Iterable[_ProcessorT] | None,\n+        *,\n+        param: str,\n+    ) -> list[_ProcessorT]:\n+        if processors is None:\n+            return []\n+        if callable(processors):\n+            return [processors]\n+        if utils.is_iterable_but_not_string(processors):\n+            return list(processors)\n+        raise ValueError(\n+            f\"The '{param}' parameter must be a callable or an iterable of callables.\"\n+        )\n+\n \n class Raw(Field[typing.Any]):\n     \"\"\"Field that applies no formatting.\"\"\"\ndiff --git a/src/marshmallow/types.py b/src/marshmallow/types.py\nindex 125a614..43661cc 100644\n--- a/src/marshmallow/types.py\n+++ b/src/marshmallow/types.py\n@@ -9,6 +9,8 @@ from __future__ import annotations\n \n import typing\n \n+T = typing.TypeVar(\"T\")\n+\n #: A type that can be either a sequence of strings or a set of strings\n StrSequenceOrSet: typing.TypeAlias = typing.Sequence[str] | typing.AbstractSet[str]\n \n@@ -24,6 +26,11 @@ ErrorMessages: typing.TypeAlias = dict[str, ErrorMessageValue]\n #: A valid option for the ``unknown`` schema option and argument\n UnknownOption: typing.TypeAlias = typing.Literal[\"exclude\", \"include\", \"raise\"]\n \n+#: Type for field-level pre-load functions\n+PreLoadCallable = typing.Callable[[typing.Any], typing.Any]\n+#: Type for field-level post-load functions\n+PostLoadCallable = typing.Callable[[T], T]\n+\n \n class SchemaValidator(typing.Protocol):\n     def __call__(\n"
+  },
+  {
+    "id": "RPR-062",
+    "repo": "marshmallow",
+    "commit": "4acb783c73130f762aa5b0df6b65ff7685d5ff2c",
+    "short_commit": "4acb783c",
+    "title": "Fix Unreachable Warning (#2935)",
+    "author": "Jared Deckard",
+    "date": "2026-04-01",
+    "files": [
+      "src/marshmallow/fields.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py\nindex ed79273..fe8a868 100644\n--- a/src/marshmallow/fields.py\n+++ b/src/marshmallow/fields.py\n@@ -500,7 +500,7 @@ class Nested(Field):\n             | SchemaMeta\n             | str\n             | dict[str, Field]\n-            | typing.Callable[[], Schema | SchemaMeta | dict[str, Field]]\n+            | typing.Callable[[], Schema | SchemaMeta | str | dict[str, Field]]\n         ),\n         *,\n         only: types.StrSequenceOrSet | None = None,\n@@ -528,12 +528,12 @@ class Nested(Field):\n     def schema(self) -> Schema:\n         \"\"\"The nested Schema object.\"\"\"\n         if not self._schema:\n-            if callable(self.nested) and not isinstance(self.nested, type):\n-                nested = self.nested()\n-            else:\n-                nested = typing.cast(\"Schema\", self.nested)\n             # defer the import of `marshmallow.schema` to avoid circular imports\n-            from marshmallow.schema import Schema  # noqa: PLC0415\n+            from marshmallow.schema import Schema, SchemaMeta  # noqa: PLC0415\n+\n+            nested = self.nested\n+            if callable(nested) and not isinstance(nested, SchemaMeta):\n+                nested = nested()\n \n             if isinstance(nested, dict):\n                 nested = Schema.from_dict(nested)\n"
+  },
+  {
+    "id": "RPR-063",
+    "repo": "marshmallow",
+    "commit": "c38b48ec3b8bb44315036d0c8a07bc8477eb5094",
+    "short_commit": "c38b48ec",
+    "title": "Add ipaddress types to Schema.TYPE_MAPPING (#2906)",
+    "author": "Dhruvil Darji",
+    "date": "2026-03-25",
+    "files": [
+      "src/marshmallow/schema.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py\nindex 4288f05..24efa90 100644\n--- a/src/marshmallow/schema.py\n+++ b/src/marshmallow/schema.py\n@@ -8,6 +8,7 @@ import datetime as dt\n import decimal\n import functools\n import inspect\n+import ipaddress\n import json\n import operator\n import typing\n@@ -290,6 +291,10 @@ class Schema(metaclass=SchemaMeta):\n         dt.date: ma_fields.Date,\n         dt.timedelta: ma_fields.TimeDelta,\n         decimal.Decimal: ma_fields.Decimal,\n+        ipaddress.IPv4Address: ma_fields.IPv4,\n+        ipaddress.IPv6Address: ma_fields.IPv6,\n+        ipaddress.IPv4Interface: ma_fields.IPv4Interface,\n+        ipaddress.IPv6Interface: ma_fields.IPv6Interface,\n     }\n     #: Overrides for default schema-level error messages\n     error_messages: dict[str, str] = {}\n"
+  },
+  {
+    "id": "RPR-064",
+    "repo": "marshmallow",
+    "commit": "3bc191ab3c8cac8356839bcde0918cb6aed4d3a1",
+    "short_commit": "3bc191ab",
+    "title": "Fix Field.error_messages type to allow dict and list values (#2907)",
+    "author": "Dhruvil Darji",
+    "date": "2026-03-25",
+    "files": [
+      "src/marshmallow/fields.py",
+      "src/marshmallow/types.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py\nindex 31c1492..ed79273 100644\n--- a/src/marshmallow/fields.py\n+++ b/src/marshmallow/fields.py\n@@ -94,7 +94,7 @@ class _BaseFieldKwargs(typing.TypedDict, total=False):\n     allow_none: bool | None\n     load_only: bool\n     dump_only: bool\n-    error_messages: dict[str, str] | None\n+    error_messages: types.ErrorMessages | None\n     metadata: typing.Mapping[str, typing.Any] | None\n \n \n@@ -169,7 +169,7 @@ class Field(typing.Generic[_InternalT]):\n     #: Default error messages for various kinds of errors. The keys in this dictionary\n     #: are passed to `Field.make_error`. The values are error messages passed to\n     #: :exc:`marshmallow.exceptions.ValidationError`.\n-    default_error_messages: dict[str, str] = {\n+    default_error_messages: types.ErrorMessages = {\n         \"required\": \"Missing data for required field.\",\n         \"null\": \"Field may not be null.\",\n         \"validator_failed\": \"Invalid value.\",\n@@ -187,7 +187,7 @@ class Field(typing.Generic[_InternalT]):\n         allow_none: bool | None = None,\n         load_only: bool = False,\n         dump_only: bool = False,\n-        error_messages: dict[str, str] | None = None,\n+        error_messages: types.ErrorMessages | None = None,\n         metadata: typing.Mapping[str, typing.Any] | None = None,\n     ) -> None:\n         self.dump_default = dump_default\n@@ -220,7 +220,7 @@ class Field(typing.Generic[_InternalT]):\n         metadata = metadata or {}\n         self.metadata = metadata\n         # Collect default error message from self and parent classes\n-        messages: dict[str, str] = {}\n+        messages: types.ErrorMessages = {}\n         for cls in reversed(self.__class__.__mro__):\n             messages.update(getattr(cls, \"default_error_messages\", {}))\n         messages.update(error_messages or {})\n@@ -1732,6 +1732,8 @@ class Url(String):\n         self.absolute = absolute\n         self.require_tld = require_tld\n         # Insert validation into self.validators so that multiple errors can be stored.\n+        if not isinstance(self.error_messages[\"invalid\"], str):\n+            raise ValueError('\"invalid\" error message must be a string.')\n         validator = validate.URL(\n             relative=self.relative,\n             absolute=self.absolute,\n@@ -1755,6 +1757,8 @@ class Email(String):\n     def __init__(self, **kwargs: Unpack[_BaseFieldKwargs]) -> None:\n         super().__init__(**kwargs)\n         # Insert validation into self.validators so that multiple errors can be stored.\n+        if not isinstance(self.error_messages[\"invalid\"], str):\n+            raise ValueError('\"invalid\" error message must be a string.')\n         validator = validate.Email(error=self.error_messages[\"invalid\"])\n         self.validators.insert(0, validator)\n \ndiff --git a/src/marshmallow/types.py b/src/marshmallow/types.py\nindex 4c5d98d..125a614 100644\n--- a/src/marshmallow/types.py\n+++ b/src/marshmallow/types.py\n@@ -15,6 +15,12 @@ StrSequenceOrSet: typing.TypeAlias = typing.Sequence[str] | typing.AbstractSet[s\n #: Type for validator functions\n Validator: typing.TypeAlias = typing.Callable[[typing.Any], typing.Any]\n \n+#: Type for a single error message value, which can be a string, list, or dict\n+ErrorMessageValue: typing.TypeAlias = str | list | dict\n+\n+#: Type for error_messages dictionaries passed to fields\n+ErrorMessages: typing.TypeAlias = dict[str, ErrorMessageValue]\n+\n #: A valid option for the ``unknown`` schema option and argument\n UnknownOption: typing.TypeAlias = typing.Literal[\"exclude\", \"include\", \"raise\"]\n \n"
+  },
+  {
+    "id": "RPR-065",
+    "repo": "marshmallow",
+    "commit": "72ac4a04208ff24df0a9694d9b03b78b1c5a2e6a",
+    "short_commit": "72ac4a04",
+    "title": "Reject booleans in from_timestamp_ms, consistent with from_timestamp (#2904)",
+    "author": "Kadir Can Ozden",
+    "date": "2026-03-26",
+    "files": [
+      "src/marshmallow/utils.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/utils.py b/src/marshmallow/utils.py\nindex ee24e5e..bda3c06 100644\n--- a/src/marshmallow/utils.py\n+++ b/src/marshmallow/utils.py\n@@ -55,6 +55,8 @@ def from_timestamp(value: typing.Any) -> dt.datetime:\n \n \n def from_timestamp_ms(value: typing.Any) -> dt.datetime:\n+    if value is True or value is False:\n+        raise ValueError(\"Not a valid POSIX timestamp\")\n     value = float(value)\n     return from_timestamp(value / 1000)\n \n"
+  },
+  {
+    "id": "RPR-066",
+    "repo": "marshmallow",
+    "commit": "024b5d09e9f026f0f96d220e243be69346687ce0",
+    "short_commit": "024b5d09",
+    "title": "Fix Enum field by-name lookup to only return actual members (#2902)",
+    "author": "Kadir Can Ozden",
+    "date": "2026-03-26",
+    "files": [
+      "src/marshmallow/fields.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py\nindex 1c2e72e..31c1492 100644\n--- a/src/marshmallow/fields.py\n+++ b/src/marshmallow/fields.py\n@@ -1947,9 +1947,10 @@ class Enum(Field[_EnumT]):\n             except ValueError as error:\n                 raise self.make_error(\"unknown\", choices=self.choices_text) from error\n         try:\n-            return getattr(self.enum, val)\n-        except AttributeError as error:\n+            ret = self.enum[val]\n+        except KeyError as error:\n             raise self.make_error(\"unknown\", choices=self.choices_text) from error\n+        return ret\n \n \n class Method(Field):\n"
+  },
+  {
+    "id": "RPR-067",
+    "repo": "marshmallow",
+    "commit": "252090c7c707166cf4fcfcdc73eb4376b7bbc4b7",
+    "short_commit": "252090c7",
+    "title": "Fix nested partial to use attr_name instead of data_key for prefix (#2903)",
+    "author": "Kadir Can Ozden",
+    "date": "2026-03-26",
+    "files": [
+      "src/marshmallow/schema.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py\nindex d4a853b..4288f05 100644\n--- a/src/marshmallow/schema.py\n+++ b/src/marshmallow/schema.py\n@@ -654,7 +654,7 @@ class Schema(metaclass=SchemaMeta):\n                 d_kwargs = {}\n                 # Allow partial loading of nested schemas.\n                 if partial_is_collection:\n-                    prefix = field_name + \".\"\n+                    prefix = attr_name + \".\"\n                     len_prefix = len(prefix)\n                     sub_partial = [\n                         f[len_prefix:] for f in partial if f.startswith(prefix)\n"
+  },
+  {
+    "id": "RPR-068",
+    "repo": "marshmallow",
+    "commit": "65374df0c31cdc45acc4435741779298201306a2",
+    "short_commit": "65374df0",
+    "title": "Fix OneOf.options() emitting phantom entries when labels outnumber choices (#2909)",
+    "author": "rstar327",
+    "date": "2026-03-25",
+    "files": [
+      "src/marshmallow/validate.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py\nindex ca55114..abe3f9d 100644\n--- a/src/marshmallow/validate.py\n+++ b/src/marshmallow/validate.py\n@@ -5,7 +5,6 @@ from __future__ import annotations\n import re\n import typing\n from abc import ABC, abstractmethod\n-from itertools import zip_longest\n from operator import attrgetter\n \n from marshmallow.exceptions import ValidationError\n@@ -626,9 +625,17 @@ class OneOf(Validator):\n             of an attribute of the choice objects. Defaults to `str()`.\n         \"\"\"\n         valuegetter = valuegetter if callable(valuegetter) else attrgetter(valuegetter)\n-        pairs = zip_longest(self.choices, self.labels, fillvalue=\"\")\n+        choices = tuple(self.choices)\n+        labels = tuple(self.labels)\n+        # Pad labels with empty strings if fewer than choices, truncate if more\n+        padded_labels = labels[: len(choices)] + (\"\",) * max(\n+            0, len(choices) - len(labels)\n+        )\n \n-        return ((valuegetter(choice), label) for choice, label in pairs)\n+        return (\n+            (valuegetter(choice), label)\n+            for choice, label in zip(choices, padded_labels, strict=True)\n+        )\n \n \n class ContainsOnly(OneOf):\n"
+  },
+  {
+    "id": "RPR-069",
+    "repo": "marshmallow",
+    "commit": "070dde08bad456e743a0d2e1842c142a799a9568",
+    "short_commit": "070dde08",
+    "title": "Fix Constant field with required=True raising ValueError (#2901)",
+    "author": "Fridayworks",
+    "date": "2026-03-25",
+    "files": [
+      "src/marshmallow/fields.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py\nindex b081b4b..1c2e72e 100644\n--- a/src/marshmallow/fields.py\n+++ b/src/marshmallow/fields.py\n@@ -2074,10 +2074,20 @@ class Constant(Field[_ContantT]):\n     _CHECK_ATTRIBUTE = False\n \n     def __init__(self, constant: _ContantT, **kwargs: Unpack[_BaseFieldKwargs]):\n-        kwargs[\"load_default\"] = constant\n-        kwargs[\"dump_default\"] = constant\n         super().__init__(**kwargs)\n         self.constant = constant\n+        self.load_default = constant\n+        self.dump_default = constant\n+        # If allow_none was not explicitly provided and the constant is None,\n+        # None should be considered valid (mirrors Field.__init__ logic).\n+        if kwargs.get(\"allow_none\") is None and constant is None:\n+            self.allow_none = True\n+\n+    def _validate_missing(self, value):\n+        # Omit check for value is missing_\n+        # Below is just a paranoid check\n+        if value is None and not self.allow_none:\n+            raise self.make_error(\"null\")\n \n     def _serialize(self, value, *args, **kwargs) -> _ContantT:\n         return self.constant\n"
+  },
+  {
+    "id": "RPR-070",
+    "repo": "marshmallow",
+    "commit": "fea5428567960f15be0c9a3a4b99c0d9bb63848c",
+    "short_commit": "fea54285",
+    "title": "Make Number and Mapping abstract base classes (#2925)",
+    "author": "Steven Loria",
+    "date": "2026-03-25",
+    "files": [
+      "src/marshmallow/fields.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py\nindex dc961e6..b081b4b 100644\n--- a/src/marshmallow/fields.py\n+++ b/src/marshmallow/fields.py\n@@ -781,7 +781,7 @@ class Tuple(Field[tuple]):\n \n     def __init__(\n         self,\n-        tuple_fields: typing.Iterable[Field] | typing.Iterable[type[Field]],\n+        tuple_fields: typing.Iterable[Field | type[Field]],\n         **kwargs: Unpack[_BaseFieldKwargs],\n     ):\n         super().__init__(**kwargs)\n@@ -907,8 +907,11 @@ class UUID(Field[uuid.UUID]):\n _NumT = typing.TypeVar(\"_NumT\")\n \n \n-class Number(Field[_NumT]):\n-    \"\"\"Base class for number fields. This class should not be used within schemas.\n+class Number(Field[_NumT], metaclass=abc.ABCMeta):\n+    \"\"\"Abstract base class for number fields.\n+\n+    Use `Integer <marshmallow.fields.Integer>`, `Float <marshmallow.fields.Float>`,\n+    or `Decimal <marshmallow.fields.Decimal>` within schemas.\n \n     :param as_string: If `True`, format the serialized value as a string.\n     :param kwargs: The same keyword arguments that :class:`Field` receives.\n@@ -918,7 +921,9 @@ class Number(Field[_NumT]):\n         Use `Integer <marshmallow.fields.Integer>`, `Float <marshmallow.fields.Float>`, or `Decimal <marshmallow.fields.Decimal>` instead.\n     \"\"\"\n \n-    num_type: type[_NumT]\n+    @property\n+    @abc.abstractmethod\n+    def num_type(self) -> type[_NumT]: ...\n \n     #: Default error messages.\n     default_error_messages = {\n@@ -1544,8 +1549,10 @@ class TimeDelta(Field[dt.timedelta]):\n _MappingT = typing.TypeVar(\"_MappingT\", bound=_Mapping)\n \n \n-class Mapping(Field[_MappingT]):\n-    \"\"\"An abstract class for objects with key-value pairs. This class should not be used within schemas.\n+class Mapping(Field[_MappingT], metaclass=abc.ABCMeta):\n+    \"\"\"Abstract base class for objects with key-value pairs.\n+\n+    Use `Dict <marshmallow.fields.Dict>` within schemas.\n \n     :param keys: A field class or instance for dict keys.\n     :param values: A field class or instance for dict values.\n@@ -1561,7 +1568,9 @@ class Mapping(Field[_MappingT]):\n         Use `Dict <marshmallow.fields.Dict>` instead.\n     \"\"\"\n \n-    mapping_type: type[_MappingT]\n+    @property\n+    @abc.abstractmethod\n+    def mapping_type(self) -> type[_MappingT]: ...\n \n     #: Default error messages.\n     default_error_messages = {\"invalid\": \"Not a valid mapping type.\"}\n"
+  },
+  {
+    "id": "RPR-071",
+    "repo": "marshmallow",
+    "commit": "7324d8f3567c0a29a93b0a8f98bdf90307aefb19",
+    "short_commit": "7324d8f3",
+    "title": "[pre-commit.ci] pre-commit autoupdate (#2914)",
+    "author": "pre-commit-ci[bot]",
+    "date": "2026-03-05",
+    "files": [
+      "src/marshmallow/validate.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py\nindex b00fba5..ca55114 100644\n--- a/src/marshmallow/validate.py\n+++ b/src/marshmallow/validate.py\n@@ -204,7 +204,7 @@ class URL(Validator):\n         # Check first if the scheme is valid\n         scheme = None\n         if \"://\" in value:\n-            scheme = value.split(\"://\")[0].lower()\n+            scheme = value.split(\"://\", maxsplit=1)[0].lower()\n             if scheme not in self.schemes:\n                 raise ValidationError(message)\n \n"
+  },
+  {
+    "id": "RPR-072",
+    "repo": "marshmallow",
+    "commit": "39e7c833e9c8711a49d6d710f7e3ee5cf2effbbe",
+    "short_commit": "39e7c833",
+    "title": "Merge pull request #2892 from thanhlecongg/fix-2891",
+    "author": "Jérôme Lafréchoux",
+    "date": "2026-01-23",
+    "files": [
+      "src/marshmallow/validate.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py\nindex 5d36519..b00fba5 100644\n--- a/src/marshmallow/validate.py\n+++ b/src/marshmallow/validate.py\n@@ -214,8 +214,8 @@ class URL(Validator):\n \n         # Hostname is optional for file URLS. If absent it means `localhost`.\n         # Fill it in for the validation if needed\n-        if scheme == \"file\" and value.startswith(\"file:///\"):\n-            matched = regex.search(value.replace(\"file:///\", \"file://localhost/\", 1))\n+        if scheme == \"file\" and value.lower().startswith(\"file:///\"):\n+            matched = regex.search(\"file://localhost/\" + value[8:])\n         else:\n             matched = regex.search(value)\n \n"
+  },
+  {
+    "id": "RPR-073",
+    "repo": "marshmallow",
+    "commit": "78a94ea0e7ee9f35f8322318064232fe6147f190",
+    "short_commit": "78a94ea0",
+    "title": "Fix docstring typo",
+    "author": "Jérôme Lafréchoux",
+    "date": "2026-01-23",
+    "files": [
+      "src/marshmallow/schema.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py\nindex a58180c..d4a853b 100644\n--- a/src/marshmallow/schema.py\n+++ b/src/marshmallow/schema.py\n@@ -388,7 +388,7 @@ class Schema(metaclass=SchemaMeta):\n         load_only: typing.ClassVar[tuple[str, ...] | list[str]]\n         \"\"\"Fields to exclude from serialized results\"\"\"\n         dump_only: typing.ClassVar[tuple[str, ...] | list[str]]\n-        \"\"\"Fields to exclude from serialized results\"\"\"\n+        \"\"\"Fields to exclude from deserialized results\"\"\"\n         unknown: typing.ClassVar[types.UnknownOption]\n         \"\"\"Whether to exclude, include, or raise an error for unknown fields in the data.\n         Use `EXCLUDE`, `INCLUDE` or `RAISE`.\n"
+  },
+  {
+    "id": "RPR-074",
+    "repo": "marshmallow",
+    "commit": "8dc078e2b86312988e5f7ed32849ae0788779e81",
+    "short_commit": "8dc078e2",
+    "title": "fix issue #2891",
+    "author": "thanhlecongg",
+    "date": "2026-01-10",
+    "files": [
+      "src/marshmallow/validate.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py\nindex 5d36519..b00fba5 100644\n--- a/src/marshmallow/validate.py\n+++ b/src/marshmallow/validate.py\n@@ -214,8 +214,8 @@ class URL(Validator):\n \n         # Hostname is optional for file URLS. If absent it means `localhost`.\n         # Fill it in for the validation if needed\n-        if scheme == \"file\" and value.startswith(\"file:///\"):\n-            matched = regex.search(value.replace(\"file:///\", \"file://localhost/\", 1))\n+        if scheme == \"file\" and value.lower().startswith(\"file:///\"):\n+            matched = regex.search(\"file://localhost/\" + value[8:])\n         else:\n             matched = regex.search(value)\n \n"
+  },
+  {
+    "id": "RPR-075",
+    "repo": "marshmallow",
+    "commit": "10fe10be814a77765a76334e00bc6f69cd18409b",
+    "short_commit": "10fe10be",
+    "title": "Merge pull request #2874 from T90REAL/fix_case_sensitivity",
+    "author": "Jérôme Lafréchoux",
+    "date": "2025-12-05",
+    "files": [
+      "src/marshmallow/validate.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py\nindex ee89f76..5d36519 100644\n--- a/src/marshmallow/validate.py\n+++ b/src/marshmallow/validate.py\n@@ -187,7 +187,7 @@ class URL(Validator):\n         self.relative = relative\n         self.absolute = absolute\n         self.error: str = error or self.default_message\n-        self.schemes = schemes or self.default_schemes\n+        self.schemes = {s.lower() for s in schemes} if schemes else self.default_schemes\n         self.require_tld = require_tld\n \n     def _repr_args(self) -> str:\n"
+  },
+  {
+    "id": "RPR-076",
+    "repo": "marshmallow",
+    "commit": "a45329dfde2f46bcea67b384912b21ca39fcfbd6",
+    "short_commit": "a45329df",
+    "title": "Fix case sensitivity in validator",
+    "author": "Xiao",
+    "date": "2025-12-03",
+    "files": [
+      "src/marshmallow/validate.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py\nindex ee89f76..5d36519 100644\n--- a/src/marshmallow/validate.py\n+++ b/src/marshmallow/validate.py\n@@ -187,7 +187,7 @@ class URL(Validator):\n         self.relative = relative\n         self.absolute = absolute\n         self.error: str = error or self.default_message\n-        self.schemes = schemes or self.default_schemes\n+        self.schemes = {s.lower() for s in schemes} if schemes else self.default_schemes\n         self.require_tld = require_tld\n \n     def _repr_args(self) -> str:\n"
+  },
+  {
+    "id": "RPR-077",
+    "repo": "marshmallow",
+    "commit": "2b84b56e9a80d07b65d74811673e8e5cf46cd0f1",
+    "short_commit": "2b84b56e",
+    "title": "(fix) missing constant with len validation (#2861)",
+    "author": "agentgodzilla",
+    "date": "2025-10-31",
+    "files": [
+      "src/marshmallow/constants.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/constants.py b/src/marshmallow/constants.py\nindex 5b4c948..4a2e231 100644\n--- a/src/marshmallow/constants.py\n+++ b/src/marshmallow/constants.py\n@@ -18,5 +18,8 @@ class _Missing:\n     def __repr__(self):\n         return \"<marshmallow.missing>\"\n \n+    def __len__(self):\n+        return 0\n+\n \n missing: typing.Final = _Missing()\n"
+  },
+  {
+    "id": "RPR-078",
+    "repo": "marshmallow",
+    "commit": "2feeda7b2204b970cb829046114504845bf4dddd",
+    "short_commit": "2feeda7b",
+    "title": "docs: fix tuple spelling mistake (#2838)",
+    "author": "Marko",
+    "date": "2025-07-28",
+    "files": [
+      "src/marshmallow/schema.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py\nindex 936f092..d15d064 100644\n--- a/src/marshmallow/schema.py\n+++ b/src/marshmallow/schema.py\n@@ -550,7 +550,7 @@ class Schema(metaclass=SchemaMeta):\n         :return: Serialized data\n \n         .. versionchanged:: 3.0.0b7\n-            This method returns the serialized data rather than a ``(data, errors)`` duple.\n+            This method returns the serialized data rather than a ``(data, errors)`` tuple.\n             A :exc:`ValidationError <marshmallow.exceptions.ValidationError>` is raised\n             if ``obj`` is invalid.\n         .. versionchanged:: 3.0.0rc9\n@@ -582,7 +582,7 @@ class Schema(metaclass=SchemaMeta):\n         :return: A ``json`` string\n \n         .. versionchanged:: 3.0.0b7\n-            This method returns the serialized data rather than a ``(data, errors)`` duple.\n+            This method returns the serialized data rather than a ``(data, errors)`` tuple.\n             A :exc:`ValidationError <marshmallow.exceptions.ValidationError>` is raised\n             if ``obj`` is invalid.\n         \"\"\"\n@@ -723,7 +723,7 @@ class Schema(metaclass=SchemaMeta):\n         :return: Deserialized data\n \n         .. versionchanged:: 3.0.0b7\n-            This method returns the deserialized data rather than a ``(data, errors)`` duple.\n+            This method returns the deserialized data rather than a ``(data, errors)`` tuple.\n             A :exc:`ValidationError <marshmallow.exceptions.ValidationError>` is raised\n             if invalid data are passed.\n         \"\"\"\n@@ -757,7 +757,7 @@ class Schema(metaclass=SchemaMeta):\n         :return: Deserialized data\n \n         .. versionchanged:: 3.0.0b7\n-            This method returns the deserialized data rather than a ``(data, errors)`` duple.\n+            This method returns the deserialized data rather than a ``(data, errors)`` tuple.\n             A :exc:`ValidationError <marshmallow.exceptions.ValidationError>` is raised\n             if invalid data are passed.\n         .. versionchanged:: 4.0.0\n"
+  },
+  {
+    "id": "RPR-079",
+    "repo": "marshmallow",
+    "commit": "5429f0d4c6e346dc751599073cab67d66eefbcb2",
+    "short_commit": "5429f0d4",
+    "title": "Fix incorrect export by removing 'pprint' from __all__. (#2823)",
+    "author": "Florian L",
+    "date": "2025-04-24",
+    "files": [
+      "src/marshmallow/__init__.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/__init__.py b/src/marshmallow/__init__.py\nindex 36890a4..60825ab 100644\n--- a/src/marshmallow/__init__.py\n+++ b/src/marshmallow/__init__.py\n@@ -23,7 +23,6 @@ __all__ = [\n     \"missing\",\n     \"post_dump\",\n     \"post_load\",\n-    \"pprint\",\n     \"pre_dump\",\n     \"pre_load\",\n     \"validates\",\n"
+  },
+  {
+    "id": "RPR-080",
+    "repo": "marshmallow",
+    "commit": "4ab61bfb93a67113762b186eceaab9a9d473f92a",
+    "short_commit": "4ab61bfb",
+    "title": "Fix typo in example (#2807)",
+    "author": "Steven Loria",
+    "date": "2025-02-03",
+    "files": [
+      "src/marshmallow/schema.py"
+    ],
+    "diff": "diff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py\nindex 50fb5c4..65ba078 100644\n--- a/src/marshmallow/schema.py\n+++ b/src/marshmallow/schema.py\n@@ -374,7 +374,7 @@ class Schema(base.SchemaABC, metaclass=SchemaMeta):\n \n                 class MySchema2(Schema):\n                     # Type checkers will check attributes\n-                    class Meta(Schema.Opts):\n+                    class Meta(Schema.Meta):\n                         additional = True  # Incompatible types in assignment\n \n         .. versionremoved:: 3.0.0b7 Remove ``strict``.\n"
+  },
+  {
+    "id": "RPR-081",
+    "repo": "pluggy",
+    "commit": "49c07369faedfbf8689dc2d86c3330d48ea286ad",
+    "short_commit": "49c07369",
+    "title": "Merge pull request #809 from SIBTAIN-ASAD/fix-entrypoint-declined-distributions",
+    "author": "Ronny Pfannschmidt",
+    "date": "2026-10-21",
+    "files": [
+      "src/pluggy/_manager.py"
+    ],
+    "diff": "diff --git a/src/pluggy/_manager.py b/src/pluggy/_manager.py\nindex 2697705..f9cb47d 100644\n--- a/src/pluggy/_manager.py\n+++ b/src/pluggy/_manager.py\n@@ -517,8 +517,10 @@ class PluginManager:\n                 ):\n                     continue\n                 plugin = ep.load()\n-                self.register(plugin, name=ep.name)\n-                self._name2dist[ep.name] = dist\n+                plugin_name = self.register(plugin, name=ep.name)\n+                if plugin_name is None:\n+                    continue\n+                self._name2dist[plugin_name] = dist\n                 count += 1\n         return count\n \n"
+  },
+  {
+    "id": "RPR-082",
+    "repo": "pluggy",
+    "commit": "4d6b10d28b7af1b0a64e19cd2a709d519f2e06f4",
+    "short_commit": "4d6b10d2",
+    "title": "Fix declined entry point distribution tracking",
+    "author": "Muhammad Sibtain Asad",
+    "date": "2026-10-21",
+    "files": [
+      "src/pluggy/_manager.py"
+    ],
+    "diff": "diff --git a/src/pluggy/_manager.py b/src/pluggy/_manager.py\nindex 2697705..f9cb47d 100644\n--- a/src/pluggy/_manager.py\n+++ b/src/pluggy/_manager.py\n@@ -517,8 +517,10 @@ class PluginManager:\n                 ):\n                     continue\n                 plugin = ep.load()\n-                self.register(plugin, name=ep.name)\n-                self._name2dist[ep.name] = dist\n+                plugin_name = self.register(plugin, name=ep.name)\n+                if plugin_name is None:\n+                    continue\n+                self._name2dist[plugin_name] = dist\n                 count += 1\n         return count\n \n"
+  },
+  {
+    "id": "RPR-083",
+    "repo": "pluggy",
+    "commit": "20950ae1a494ce2f0bfce5d821e10a0b1cc2b82b",
+    "short_commit": "20950ae1",
+    "title": "Merge pull request #799 from RonnyPfannschmidt/fix-792-tracing-robust",
+    "author": "Ronny Pfannschmidt",
+    "date": "2026-10-18",
+    "files": [
+      "src/pluggy/_manager.py",
+      "src/pluggy/_tracing.py"
+    ],
+    "diff": "diff --git a/src/pluggy/_manager.py b/src/pluggy/_manager.py\nindex 5cddafc..2697705 100644\n--- a/src/pluggy/_manager.py\n+++ b/src/pluggy/_manager.py\n@@ -627,7 +627,9 @@ class PluginManager:\n             kwargs: Mapping[str, object],\n         ) -> None:\n             if outcome.exception is None:\n-                hooktrace(\"finish\", hook_name, \"-->\", outcome.get_result())\n+                # The trailing {} ends the message: without it a dict result\n+                # would be listed as if it were the call's arguments.\n+                hooktrace(\"finish\", hook_name, \"-->\", outcome.get_result(), {})\n             hooktrace.root.indent -= 1\n \n         return self.add_hookcall_monitoring(before, after)\ndiff --git a/src/pluggy/_tracing.py b/src/pluggy/_tracing.py\nindex 9211c0b..03fafbc 100644\n--- a/src/pluggy/_tracing.py\n+++ b/src/pluggy/_tracing.py\n@@ -9,6 +9,7 @@ from collections.abc import Sequence\n import enum\n import os\n from typing import Any\n+from typing import cast\n \n \n _Writer = Callable[[str], object]\n@@ -36,18 +37,26 @@ def _escape_surrogates(text: str) -> str:\n     return text.encode(\"utf-8\", \"backslashreplace\").decode(\"utf-8\")\n \n \n-def _safe_str(obj: object) -> str:\n-    \"\"\"``str(obj)`` for tracing, with a failing ``__str__`` rendered, not raised.\n+def _safe(render: Callable[[object], str], obj: object, name: str) -> str:\n+    \"\"\"``render(obj)`` for tracing, with a failure rendered as ``name``, not raised.\n \n     The result has lone surrogates escaped, so any text writer accepts it.\n     \"\"\"\n     try:\n-        text = str(obj)\n+        text = render(obj)\n     except Exception as exc:\n-        text = _describe_failure(exc, obj, \"str\")\n+        text = _describe_failure(exc, obj, name)\n     return _escape_surrogates(text)\n \n \n+def _safe_str(obj: object) -> str:\n+    return _safe(str, obj, \"str\")\n+\n+\n+def _safe_repr(obj: object) -> str:\n+    return _safe(repr, obj, \"repr\")\n+\n+\n def _is_plain_token(text: str) -> bool:\n     \"\"\"Whether ``text`` can be shown bare, without quotes around it.\"\"\"\n     return bool(text) and text.isprintable() and \" \" not in text\n@@ -60,30 +69,19 @@ def _format_block(indent: str, lines: list[str]) -> list[str]:\n \n def _render_value(obj: object) -> str:\n     \"\"\"Render a traced value, adding detail only where ``str`` is ambiguous.\"\"\"\n+    # type(), not isinstance(): a Mock(spec=str) claims str through __class__.\n+    cls = type(obj)\n     # Before the str check: a StrEnum member is a str whose str() drops the name.\n-    if isinstance(obj, (enum.Enum, os.PathLike)):\n-        return _safe_repr(obj)\n-    if isinstance(obj, str):\n-        if len(obj.splitlines()) > 1:\n-            return _safe_str(obj)\n-        if _is_plain_token(obj):\n-            return _safe_str(obj)\n+    if issubclass(cls, (enum.Enum, os.PathLike)):\n         return _safe_repr(obj)\n+    if issubclass(cls, str):\n+        text = cast(str, obj)\n+        if len(text.splitlines()) > 1 or _is_plain_token(text):\n+            return _safe_str(text)\n+        return _safe_repr(text)\n     return _safe_str(obj)\n \n \n-def _safe_repr(obj: object) -> str:\n-    \"\"\"``repr(obj)`` for tracing, with a failing ``__repr__`` rendered, not raised.\n-\n-    The result has lone surrogates escaped, so any text writer accepts it.\n-    \"\"\"\n-    try:\n-        text = repr(obj)\n-    except Exception as exc:\n-        text = _describe_failure(exc, obj, \"repr\")\n-    return _escape_surrogates(text)\n-\n-\n class TagTracer:\n     def __init__(self) -> None:\n         self._tags2proc: dict[tuple[str, ...], _Processor] = {}\n@@ -94,8 +92,8 @@ class TagTracer:\n         return TagTracerSub(self, (name,))\n \n     def _format_message(self, tags: Sequence[str], args: Sequence[object]) -> str:\n-        if isinstance(args[-1], dict):\n-            extra = args[-1]\n+        if issubclass(type(args[-1]), dict):\n+            extra = cast(dict[str, object], args[-1])\n             args = args[:-1]\n         else:\n             extra = {}\n@@ -106,7 +104,7 @@ class TagTracer:\n         lines = [f\"{indent}{content} [{':'.join(tags)}]\\n\"]\n \n         for name, value in extra.items():\n-            rendered = _render_value(value)\n+            rendered = _safe(_render_value, value, \"format\")\n             # A bare \\r is a line break too: inline, the terminal would\n             # return to column 0 and overwrite the key.\n             body = rendered.splitlines()\n"
+  },
+  {
+    "id": "RPR-084",
+    "repo": "pluggy",
+    "commit": "e108fa4490564b9f252fe7a8a4d1969f6f996641",
+    "short_commit": "e108fa44",
+    "title": "fix: skip registered entrypoint plugins without checking truthiness",
+    "author": "harbinresearcher",
+    "date": "2026-10-07",
+    "files": [
+      "src/pluggy/_manager.py"
+    ],
+    "diff": "diff --git a/src/pluggy/_manager.py b/src/pluggy/_manager.py\nindex 3300934..87cf96f 100644\n--- a/src/pluggy/_manager.py\n+++ b/src/pluggy/_manager.py\n@@ -499,7 +499,7 @@ class PluginManager:\n                     ep.group != group\n                     or (name is not None and ep.name != name)\n                     # already registered\n-                    or self.get_plugin(ep.name)\n+                    or self.has_plugin(ep.name)\n                     or self.is_blocked(ep.name)\n                 ):\n                     continue\n"
+  },
+  {
+    "id": "RPR-085",
+    "repo": "pluggy",
+    "commit": "2e3774328e26287780f0ae849e3cb5db2ba4e78b",
+    "short_commit": "2e377432",
+    "title": "manager: ignore `register(None)` instead of raising `TypeError`",
+    "author": "Ran Benita",
+    "date": "2026-09-30",
+    "files": [
+      "src/pluggy/_manager.py"
+    ],
+    "diff": "diff --git a/src/pluggy/_manager.py b/src/pluggy/_manager.py\nindex 1d7984a..3739dc8 100644\n--- a/src/pluggy/_manager.py\n+++ b/src/pluggy/_manager.py\n@@ -197,7 +197,10 @@ class PluginManager:\n         If the plugin is already registered, raises a :exc:`ValueError`.\n         \"\"\"\n         if plugin is None:\n-            raise TypeError(\"plugin must not be None\")\n+            # Registering a `None` plugin causes problems (#731). However, some\n+            # users are doing it, so can't error out (#749). Just ignore\n+            # instead.\n+            return None\n \n         plugin_name = name or self.get_canonical_name(plugin)\n \n"
+  },
+  {
+    "id": "RPR-086",
+    "repo": "pluggy",
+    "commit": "755339bf650169705388afd2a6c32cdb7e09b753",
+    "short_commit": "755339bf",
+    "title": "Restore `pluggy._manager.DistFacade` - used by conda",
+    "author": "Ran Benita",
+    "date": "2026-09-30",
+    "files": [
+      "src/pluggy/_compat.py",
+      "src/pluggy/_manager.py"
+    ],
+    "diff": "diff --git a/src/pluggy/_compat.py b/src/pluggy/_compat.py\nindex 3761cc3..a5324b0 100644\n--- a/src/pluggy/_compat.py\n+++ b/src/pluggy/_compat.py\n@@ -1,14 +1,13 @@\n-\"\"\"\n-Compatibility layer for legacy setuptools/pkg_resources API.\n-\n-This module provides backward compatibility wrappers around modern\n-importlib.metadata, allowing gradual migration away from setuptools.\n-\"\"\"\n+\"\"\"Compatibility helpers.\"\"\"\n \n from __future__ import annotations\n \n-import importlib.metadata\n from typing import Any\n+from typing import TYPE_CHECKING\n+\n+\n+if TYPE_CHECKING:\n+    import importlib.metadata\n \n \n class DistFacade:\ndiff --git a/src/pluggy/_manager.py b/src/pluggy/_manager.py\nindex 1d7984a..3300934 100644\n--- a/src/pluggy/_manager.py\n+++ b/src/pluggy/_manager.py\n@@ -15,6 +15,7 @@ import warnings\n \n from . import _tracing\n from ._callers import _multicall\n+from ._compat import DistFacade\n from ._hooks import _HookImplFunction\n from ._hooks import _Namespace\n from ._hooks import _Plugin\n@@ -31,8 +32,6 @@ from ._result import Result\n if TYPE_CHECKING:\n     import importlib.metadata\n \n-    from ._compat import DistFacade\n-\n \n _BeforeTrace: TypeAlias = Callable[[str, Sequence[HookImpl], Mapping[str, Any]], None]\n _AfterTrace: TypeAlias = Callable[\n"
+  },
+  {
+    "id": "RPR-087",
+    "repo": "pluggy",
+    "commit": "6abdcf6ca167f5d61297b5d86e22f3dd058031b3",
+    "short_commit": "6abdcf6c",
+    "title": "Merge pull request #743 from feiiiiii5/fix-warn-defaulted-args",
+    "author": "fei",
+    "date": "2026-09-27",
+    "files": [
+      "src/pluggy/_manager.py"
+    ],
+    "diff": "diff --git a/src/pluggy/_manager.py b/src/pluggy/_manager.py\nindex 8a0959f..1d7984a 100644\n--- a/src/pluggy/_manager.py\n+++ b/src/pluggy/_manager.py\n@@ -440,7 +440,7 @@ class PluginManager:\n             )\n \n         if hook.spec.warn_on_impl_args:\n-            for hookimpl_argname in hookimpl.argnames:\n+            for hookimpl_argname in hookimpl.argnames + hookimpl.kwargnames:\n                 argname_warning = hook.spec.warn_on_impl_args.get(hookimpl_argname)\n                 if argname_warning is not None:\n                     _warn_for_function(argname_warning, hookimpl.function)\n"
+  },
+  {
+    "id": "RPR-088",
+    "repo": "pluggy",
+    "commit": "3d5417a4eff449e17e5bb3e1545b63cbf0e0c768",
+    "short_commit": "3d5417a4",
+    "title": "Fix `subset_hook_caller` getting confused by `specname`",
+    "author": "codingFeng101",
+    "date": "2026-06-30",
+    "files": [
+      "src/pluggy/_manager.py"
+    ],
+    "diff": "diff --git a/src/pluggy/_manager.py b/src/pluggy/_manager.py\nindex b265aec..06923c2 100644\n--- a/src/pluggy/_manager.py\n+++ b/src/pluggy/_manager.py\n@@ -603,14 +603,20 @@ class PluginManager:\n     def subset_hook_caller(\n         self, name: str, remove_plugins: Iterable[_Plugin]\n     ) -> HookCaller:\n-        \"\"\"Return a proxy :class:`~pluggy.HookCaller` instance for the named\n-        method which manages calls to all registered plugins except the ones\n-        from remove_plugins.\"\"\"\n+        \"\"\"Return a proxy :class:`~pluggy.HookCaller` for the named hook which\n+        calls all registered plugins except the ones from remove_plugins.\"\"\"\n         orig: HookCaller = getattr(self.hook, name)\n-        plugins_to_remove = {plug for plug in remove_plugins if hasattr(plug, name)}\n-        if plugins_to_remove:\n-            return _SubsetHookCaller(orig, plugins_to_remove)\n-        return orig\n+        plugins_to_remove = set(remove_plugins)\n+        # Optimization: discard plugins to remove which don't actually implement\n+        # the hook, to make checks faster.\n+        plugins_to_remove.intersection_update(\n+            hookimpl.plugin for hookimpl in orig._hookimpls\n+        )\n+        # Optimization: if none of the plugins to remove actually implement the\n+        # hook, avoid the subset hook caller overhead.\n+        if not plugins_to_remove:\n+            return orig\n+        return _SubsetHookCaller(orig, plugins_to_remove)\n \n \n def _formatdef(func: Callable[..., object]) -> str:\n"
+  },
+  {
+    "id": "RPR-089",
+    "repo": "requests",
+    "commit": "6404f345e562d962abe6700a1c357ec1e7e18232",
+    "short_commit": "6404f345",
+    "title": "Fix `prepare_body` stream detection for `__getattr__`-based file wrappers (#7433)",
+    "author": "Kaeun Kim",
+    "date": "2026-05-12",
+    "files": [
+      "src/requests/models.py"
+    ],
+    "diff": "diff --git a/src/requests/models.py b/src/requests/models.py\nindex 4142f2a..57e1148 100644\n--- a/src/requests/models.py\n+++ b/src/requests/models.py\n@@ -596,9 +596,9 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n             if not isinstance(body, bytes):\n                 body = body.encode(\"utf-8\")\n \n-        if isinstance(data, Iterable) and not isinstance(\n-            data, (str, bytes, list, tuple, Mapping)\n-        ):\n+        # data that proxies attributes to underlying objects needs hasattr\n+        is_iterable = isinstance(data, Iterable) or hasattr(data, \"__iter__\")\n+        if is_iterable and not isinstance(data, (str, bytes, list, tuple, Mapping)):\n             try:\n                 length = super_len(data)\n             except (TypeError, AttributeError, UnsupportedOperation):\n"
+  },
+  {
+    "id": "RPR-090",
+    "repo": "requests",
+    "commit": "b684dcb9bbf3aa557d1238e72062c4a29737dd1c",
+    "short_commit": "b684dcb9",
+    "title": "sessions: fix hooks type (#7425)",
+    "author": "Sebastian Meyer",
+    "date": "2026-05-11",
+    "files": [
+      "src/requests/_types.py",
+      "src/requests/sessions.py"
+    ],
+    "diff": "diff --git a/src/requests/_types.py b/src/requests/_types.py\nindex 52034a6..18b561e 100644\n--- a/src/requests/_types.py\n+++ b/src/requests/_types.py\n@@ -150,7 +150,7 @@ if TYPE_CHECKING:\n         timeout: TimeoutType\n         allow_redirects: bool\n         proxies: dict[str, str] | None\n-        hooks: HooksType\n+        hooks: HooksInputType | None\n         stream: bool | None\n         verify: VerifyType | None\n         cert: CertType\ndiff --git a/src/requests/sessions.py b/src/requests/sessions.py\nindex 74029c8..87c87a2 100644\n--- a/src/requests/sessions.py\n+++ b/src/requests/sessions.py\n@@ -567,7 +567,7 @@ class Session(SessionRedirectMixin):\n         timeout: _t.TimeoutType = None,\n         allow_redirects: bool = True,\n         proxies: dict[str, str] | None = None,\n-        hooks: _t.HooksType = None,\n+        hooks: _t.HooksInputType | None = None,\n         stream: bool | None = None,\n         verify: _t.VerifyType | None = None,\n         cert: _t.CertType = None,\n"
+  },
+  {
+    "id": "RPR-091",
+    "repo": "requests",
+    "commit": "27e0981962d355b9532256f4dcb3d42f64b04d9c",
+    "short_commit": "27e09819",
+    "title": "Fix remaining typos (#7395)",
+    "author": "Dimitri Papadopoulos Orfanos",
+    "date": "2026-04-30",
+    "files": [
+      "src/requests/adapters.py"
+    ],
+    "diff": "diff --git a/src/requests/adapters.py b/src/requests/adapters.py\nindex 98f7446..d5349b5 100644\n--- a/src/requests/adapters.py\n+++ b/src/requests/adapters.py\n@@ -401,7 +401,7 @@ class HTTPAdapter(BaseAdapter):\n         alter the other keys to ensure the desired behaviour.\n \n         :param request:\n-            The PreparedReqest being sent over the connection.\n+            The PreparedRequest being sent over the connection.\n         :type request:\n             :class:`~requests.models.PreparedRequest`\n         :param verify:\n"
+  },
+  {
+    "id": "RPR-092",
+    "repo": "requests",
+    "commit": "bc7dd0fc4d56e808bcdd85ac2d797b3107c89259",
+    "short_commit": "bc7dd0fc",
+    "title": "Fix cosmetic header validity parsing regex (#7308)",
+    "author": "Nate Prewitt",
+    "date": "2026-03-30",
+    "files": [
+      "src/requests/_internal_utils.py"
+    ],
+    "diff": "diff --git a/src/requests/_internal_utils.py b/src/requests/_internal_utils.py\nindex 8c7c051..b7cf469 100644\n--- a/src/requests/_internal_utils.py\n+++ b/src/requests/_internal_utils.py\n@@ -10,10 +10,10 @@ import re\n \n from .compat import builtin_str\n \n-_VALID_HEADER_NAME_RE_BYTE = re.compile(rb\"^[^:\\s][^:\\r\\n]*$\")\n-_VALID_HEADER_NAME_RE_STR = re.compile(r\"^[^:\\s][^:\\r\\n]*$\")\n-_VALID_HEADER_VALUE_RE_BYTE = re.compile(rb\"^\\S[^\\r\\n]*$|^$\")\n-_VALID_HEADER_VALUE_RE_STR = re.compile(r\"^\\S[^\\r\\n]*$|^$\")\n+_VALID_HEADER_NAME_RE_BYTE = re.compile(rb\"^[^:\\s][^:\\r\\n]*\\Z\")\n+_VALID_HEADER_NAME_RE_STR = re.compile(r\"^[^:\\s][^:\\r\\n]*\\Z\")\n+_VALID_HEADER_VALUE_RE_BYTE = re.compile(rb\"^\\S[^\\r\\n]*\\Z|^\\Z\")\n+_VALID_HEADER_VALUE_RE_STR = re.compile(r\"^\\S[^\\r\\n]*\\Z|^\\Z\")\n \n _HEADER_VALIDATORS_STR = (_VALID_HEADER_NAME_RE_STR, _VALID_HEADER_VALUE_RE_STR)\n _HEADER_VALIDATORS_BYTE = (_VALID_HEADER_NAME_RE_BYTE, _VALID_HEADER_VALUE_RE_BYTE)\n"
+  },
+  {
+    "id": "RPR-093",
+    "repo": "requests",
+    "commit": "3f07f990ac74f1e1691ba17ef8c14007f05846ab",
+    "short_commit": "3f07f990",
+    "title": "Fix typo in documentation for verify",
+    "author": "Jonas Fonseca",
+    "date": "2024-10-04",
+    "files": [
+      "src/requests/adapters.py"
+    ],
+    "diff": "diff --git a/src/requests/adapters.py b/src/requests/adapters.py\nindex 9a58b16..6d5951f 100644\n--- a/src/requests/adapters.py\n+++ b/src/requests/adapters.py\n@@ -410,7 +410,7 @@ class HTTPAdapter(BaseAdapter):\n           ``\"cert_reqs\"`` will be set\n         * If ``verify`` is a string, (i.e., it is a user-specified trust bundle)\n           ``\"ca_certs\"`` will be set if the string is not a directory recognized\n-          by :py:func:`os.path.isdir`, otherwise ``\"ca_certs_dir\"`` will be\n+          by :py:func:`os.path.isdir`, otherwise ``\"ca_cert_dir\"`` will be\n           set.\n         * If ``\"cert\"`` is specified, ``\"cert_file\"`` will always be set. If\n           ``\"cert\"`` is a tuple with a second item, ``\"key_file\"`` will also\n"
+  },
+  {
+    "id": "RPR-094",
+    "repo": "requests",
+    "commit": "8dd3b26bf59808de24fd654699f592abf6de581e",
+    "short_commit": "8dd3b26b",
+    "title": "Merge pull request #6302 from flysee/main",
+    "author": "Ian Stapleton Cordasco",
+    "date": "2024-03-18",
+    "files": [
+      "src/requests/utils.py"
+    ],
+    "diff": "diff --git a/src/requests/utils.py b/src/requests/utils.py\nindex a603a86..ae6c42f 100644\n--- a/src/requests/utils.py\n+++ b/src/requests/utils.py\n@@ -97,6 +97,8 @@ if sys.platform == \"win32\":\n         # '<local>' string by the localhost entry and the corresponding\n         # canonical entry.\n         proxyOverride = proxyOverride.split(\";\")\n+        # filter out empty strings to avoid re.match return true in the following code.\n+        proxyOverride = filter(None, proxyOverride)\n         # now check if we match one of the registry values.\n         for test in proxyOverride:\n             if test == \"<local>\":\n"
+  },
+  {
+    "id": "RPR-095",
+    "repo": "cachetools",
+    "commit": "e96310286ed0f5a8bcb5a2f52adc1bab7ebe8634",
+    "short_commit": "e9631028",
+    "title": "Fix #461: Use OrderedDict for defined and faster LFUCache eviction.",
+    "author": "Thomas Kemmer",
+    "date": "2026-11-05",
+    "files": [
+      "src/cachetools/__init__.py"
+    ],
+    "diff": "diff --git a/src/cachetools/__init__.py b/src/cachetools/__init__.py\nindex 4ff8b92..a61dfd3 100644\n--- a/src/cachetools/__init__.py\n+++ b/src/cachetools/__init__.py\n@@ -212,7 +212,7 @@ class LFUCache(Cache):\n \n         def __init__(self, count):\n             self.count = count\n-            self.keys = set()\n+            self.keys = collections.OrderedDict()\n \n         def unlink(self):\n             next = self.next\n@@ -244,13 +244,13 @@ class LFUCache(Cache):\n             link.next = root.next\n             root.next = link.next.prev = link\n             link.prev = root\n-        link.keys.add(key)\n+        link.keys[key] = None\n         self.__links[key] = link\n \n     def __delitem__(self, key, cache_delitem=Cache.__delitem__):\n         cache_delitem(self, key)\n         link = self.__links.pop(key)\n-        link.keys.remove(key)\n+        del link.keys[key]\n         if not link.keys:\n             link.unlink()\n \n@@ -260,7 +260,7 @@ class LFUCache(Cache):\n         curr = root.next\n         if curr is root:\n             raise KeyError(\"%s is empty\" % type(self).__name__) from None\n-        key = next(iter(curr.keys))  # remove an arbitrary element\n+        key = next(iter(curr.keys))  # remove the \"oldest\" element\n         value = Cache.__getitem__(self, key)\n         del self[key]\n         return (key, value)\n@@ -283,8 +283,8 @@ class LFUCache(Cache):\n             curr.next = link.next\n             link.next = curr.next.prev = curr\n             curr.prev = link\n-        curr.keys.add(key)\n-        link.keys.remove(key)\n+        curr.keys[key] = None\n+        del link.keys[key]\n         if not link.keys:\n             link.unlink()\n         self.__links[key] = curr\n"
+  },
+  {
+    "id": "RPR-096",
+    "repo": "cachetools",
+    "commit": "304167fc76f607b7d59277ab6e0ce014a89dc00d",
+    "short_commit": "304167fc",
+    "title": "Fix type stubs for TTLCache and TLRUCache with default timer.",
+    "author": "Thomas Kemmer",
+    "date": "2026-10-31",
+    "files": [
+      "src/cachetools/__init__.pyi"
+    ],
+    "diff": "diff --git a/src/cachetools/__init__.pyi b/src/cachetools/__init__.pyi\nindex 8e2de55..41c1c06 100644\n--- a/src/cachetools/__init__.pyi\n+++ b/src/cachetools/__init__.pyi\n@@ -36,8 +36,6 @@ _T = TypeVar(\"_T\")\n _KT = TypeVar(\"_KT\")\n _VT = TypeVar(\"_VT\")\n _TT = TypeVar(\"_TT\", default=float)\n-_KT2 = TypeVar(\"_KT2\")\n-_VT2 = TypeVar(\"_VT2\")\n \n class Cache(MutableMapping[_KT, _VT]):\n     def __init__(\n@@ -94,13 +92,13 @@ class _TimedCache(Cache[_KT, _VT], Generic[_KT, _VT, _TT]):\n     def timer(self) -> _Timer[_TT]: ...\n \n class TTLCache(_TimedCache[_KT, _VT, _TT]):\n-    @overload\n+    @overload  # without timer, _TT takes its default\n     def __init__(\n-        self: TTLCache[_KT2, _VT2, float],\n+        self,\n         maxsize: float,\n         ttl: float,\n         *,\n-        getsizeof: Callable[[_VT2], float] | None = None,\n+        getsizeof: Callable[[_VT], float] | None = None,\n     ) -> None: ...\n     @overload\n     def __init__(\n@@ -115,13 +113,13 @@ class TTLCache(_TimedCache[_KT, _VT, _TT]):\n     def expire(self, time: _TT | None = None) -> list[tuple[_KT, _VT]]: ...\n \n class TLRUCache(_TimedCache[_KT, _VT, _TT]):\n-    @overload\n+    @overload  # without timer, _TT takes its default\n     def __init__(\n-        self: TLRUCache[_KT2, _VT2, float],\n+        self,\n         maxsize: float,\n-        ttu: Callable[[_KT2, _VT2, float], float],\n+        ttu: Callable[[_KT, _VT, float], float],\n         *,\n-        getsizeof: Callable[[_VT2], float] | None = None,\n+        getsizeof: Callable[[_VT], float] | None = None,\n     ) -> None: ...\n     @overload\n     def __init__(\n"
+  },
+  {
+    "id": "RPR-097",
+    "repo": "cachetools",
+    "commit": "ffe21c44d3f7de9c7a89870c8cf1fd7aa583a2ae",
+    "short_commit": "ffe21c44",
+    "title": "Fix #430: Honor falsey getsizeof callables (#431)",
+    "author": "WU Leizhi",
+    "date": "2026-10-05",
+    "files": [
+      "src/cachetools/__init__.py"
+    ],
+    "diff": "diff --git a/src/cachetools/__init__.py b/src/cachetools/__init__.py\nindex fe921c0..437b3e0 100644\n--- a/src/cachetools/__init__.py\n+++ b/src/cachetools/__init__.py\n@@ -52,7 +52,7 @@ class Cache(collections.abc.MutableMapping):\n     def __init__(self, maxsize, getsizeof=None):\n         if maxsize < 0:\n             raise ValueError(\"maxsize must be non-negative\")\n-        if getsizeof:\n+        if getsizeof is not None:\n             self.getsizeof = getsizeof\n         if self.getsizeof is not Cache.getsizeof:\n             self.__size = {}\n"
+  },
+  {
+    "id": "RPR-098",
+    "repo": "iniconfig",
+    "commit": "2502e28b194aa08825b2d52b7b089b3cd77df04f",
+    "short_commit": "2502e28b",
+    "title": "Fix get overloads for callable positional defaults (#87)",
+    "author": "Ronny Pfannschmidt",
+    "date": "2026-11-10",
+    "files": [
+      "src/iniconfig/__init__.py"
+    ],
+    "diff": "diff --git a/src/iniconfig/__init__.py b/src/iniconfig/__init__.py\nindex ddb97a3..38a14f5 100644\n--- a/src/iniconfig/__init__.py\n+++ b/src/iniconfig/__init__.py\n@@ -39,6 +39,7 @@ class SectionWrapper:\n     def get(\n         self,\n         key: str,\n+        *,\n         convert: Callable[[str], _T],\n     ) -> _T | None: ...\n \n@@ -61,8 +62,7 @@ class SectionWrapper:\n         convert: Callable[[str], _T],\n     ) -> _T | _D: ...\n \n-    # TODO: investigate possible mypy bug wrt matching the passed over data\n-    def get(  # type: ignore [misc]\n+    def get(\n         self,\n         key: str,\n         default: _D | None = None,\n@@ -193,6 +193,7 @@ class IniConfig:\n         self,\n         section: str,\n         name: str,\n+        *,\n         convert: Callable[[str], _T],\n     ) -> _T | None: ...\n \n@@ -219,7 +220,7 @@ class IniConfig:\n         convert: Callable[[str], _T],\n     ) -> _T | _D: ...\n \n-    def get(  # type: ignore\n+    def get(\n         self,\n         section: str,\n         name: str,\n"
+  },
+  {
+    "id": "RPR-099",
+    "repo": "iniconfig",
+    "commit": "f82c7d31c466dab9eca0b3523038c9252b6049cc",
+    "short_commit": "f82c7d31",
+    "title": "Fix get overloads for callable positional defaults",
+    "author": "Wentao Tong",
+    "date": "2026-10-22",
+    "files": [
+      "src/iniconfig/__init__.py"
+    ],
+    "diff": "diff --git a/src/iniconfig/__init__.py b/src/iniconfig/__init__.py\nindex ddb97a3..38a14f5 100644\n--- a/src/iniconfig/__init__.py\n+++ b/src/iniconfig/__init__.py\n@@ -39,6 +39,7 @@ class SectionWrapper:\n     def get(\n         self,\n         key: str,\n+        *,\n         convert: Callable[[str], _T],\n     ) -> _T | None: ...\n \n@@ -61,8 +62,7 @@ class SectionWrapper:\n         convert: Callable[[str], _T],\n     ) -> _T | _D: ...\n \n-    # TODO: investigate possible mypy bug wrt matching the passed over data\n-    def get(  # type: ignore [misc]\n+    def get(\n         self,\n         key: str,\n         default: _D | None = None,\n@@ -193,6 +193,7 @@ class IniConfig:\n         self,\n         section: str,\n         name: str,\n+        *,\n         convert: Callable[[str], _T],\n     ) -> _T | None: ...\n \n@@ -219,7 +220,7 @@ class IniConfig:\n         convert: Callable[[str], _T],\n     ) -> _T | _D: ...\n \n-    def get(  # type: ignore\n+    def get(\n         self,\n         section: str,\n         name: str,\n"
+  },
+  {
+    "id": "RPR-100",
+    "repo": "iniconfig",
+    "commit": "15852c2d1f9178ff960bf6c39a6f0f1495f1009e",
+    "short_commit": "15852c2d",
+    "title": "[pre-commit.ci] auto fixes from pre-commit.com hooks",
+    "author": "pre-commit-ci[bot]",
+    "date": "2026-10-05",
+    "files": [
+      "src/iniconfig/__init__.py"
+    ],
+    "diff": "diff --git a/src/iniconfig/__init__.py b/src/iniconfig/__init__.py\nindex b84809f..ddb97a3 100644\n--- a/src/iniconfig/__init__.py\n+++ b/src/iniconfig/__init__.py\n@@ -10,7 +10,7 @@ from typing import Final\n from typing import TypeVar\n from typing import overload\n \n-__all__ = [\"IniConfig\", \"ParseError\", \"COMMENTCHARS\", \"iscommentline\"]\n+__all__ = [\"COMMENTCHARS\", \"IniConfig\", \"ParseError\", \"iscommentline\"]\n \n from . import _parse\n from ._parse import COMMENTCHARS\n"
+  }
+]

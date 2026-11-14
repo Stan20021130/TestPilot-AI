@@ -30,6 +30,7 @@ celery_app = Celery(
         "app.tasks.pr_pipeline",
         "app.tasks.indexing",
         "app.tasks.notifications",
+        "app.tasks.maintenance",
     ],
 )
 
@@ -55,6 +56,7 @@ celery_app.conf.update(
         "app.tasks.pr_pipeline.*": {"queue": "pr_pipeline"},
         "app.tasks.indexing.*": {"queue": "indexing"},
         "app.tasks.notifications.*": {"queue": "notifications"},
+        "app.tasks.maintenance.*": {"queue": "indexing"},
     },
     # Retry / timeout settings
     task_acks_late=True,
@@ -70,6 +72,10 @@ celery_app.conf.update(
         "cleanup-old-repos": {
             "task": "app.tasks.indexing.cleanup_stale_repos",
             "schedule": 3600.0,  # Every hour
+        },
+        "prune-langgraph-checkpoints": {
+            "task": "app.tasks.maintenance.prune_checkpoints",
+            "schedule": 86400.0,  # Every 24 hours
         },
     },
 )

@@ -12,7 +12,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 
-class VCSCapability(str, Enum):
+class VCSCapability(str, Enum):  # noqa: UP042 - keep the str+Enum repr used in logs/API
     """Supported platform capabilities for VCS providers."""
 
     AUTHENTICATE = "vcs.authenticate"

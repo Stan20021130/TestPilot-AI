@@ -15,8 +15,9 @@
 
 - AST-based change and dependency analysis (Tree-sitter)
 - 3-layer hybrid codebase RAG (dense vectors + keyword + disk scan)
-- Stateful multi-agent test generation (11 specialized LangGraph agents)
+- Stateful multi-agent test generation (11 LangGraph agents + a contracts-first verify engine)
 - Sandboxed test execution (PyTest, Jest, JUnit, Go Test)
+- Selective regression execution (only tests covering the changed modules)
 - Automated failure diagnosis with root-cause reporting
 - Multi-VCS support (GitHub, Bitbucket, GitLab, Azure DevOps)
 - 4-category EvalOps telemetry (Pass@1/N, repair rate, token cost)
@@ -80,8 +81,8 @@ Deterministic, language-agnostic AST parsing. Change analysis is based on actual
 **Why LangGraph?**
 Stateful orchestration with conditional branching, retries, and failure recovery. Each agent node is independently testable and observable, making the pipeline debuggable rather than a black box.
 
-**Why separate agents rather than one prompt?**
-Each stage — planning, diff parsing, dependency traversal, retrieval, generation, execution, failure analysis — has distinct inputs, outputs, and failure modes. Separating them makes the system easier to observe, retry selectively, and extend.
+**Why separate phases rather than one prompt?**
+Each phase — planning, diff parsing, dependency traversal, retrieval, generation, verification — has distinct inputs, outputs, and failure modes. Separating them makes the system easier to observe, retry selectively, and extend.
 
 **Why Qdrant?**
 Dense vector retrieval over repository code with 384-dimensional embeddings. Combined with PostgreSQL keyword search and a disk scanner, this gives three independent retrieval strategies that complement each other.
@@ -90,7 +91,7 @@ Dense vector retrieval over repository code with 384-dimensional embeddings. Com
 Test generation and sandboxed execution are expensive and long-running. Moving them out of the synchronous API path keeps the backend responsive and allows the frontend to stream real-time progress updates.
 
 **Why sandboxed execution?**
-Generated tests must not run against the host environment directly. Subprocess isolation prevents generated code from having side effects on the running system.
+Generated tests are untrusted code. Each run executes in its own scratch directory with run-scoped file names, a scrubbed environment (no LLM keys, database URLs or VCS tokens), POSIX resource limits, and optionally a network-isolated container (`SANDBOX_MODE=docker`). Isolation is a first-class part of the verify engine's runner, not a side effect of running a subprocess.
 
 ---
 
@@ -134,21 +135,30 @@ graph TD
 
 ## The 11 LangGraph Agents
 
-The agents are separated by responsibility to keep planning, static analysis, retrieval, generation, execution, and failure diagnosis independently testable and observable.
+The agents are separated by responsibility to keep planning, static analysis, retrieval, generation, review and documentation independently testable and observable.
 
 | # | Agent | Responsibility |
 | :--- | :--- | :--- |
 | 1 | **Planner** | Validates pipeline requests and normalizes execution state |
-| 2 | **Diff** | Parses Git diffs and maps changed line ranges to Tree-sitter AST nodes |
+| 2 | **Diff** | Parses Git diffs, maps changed line ranges to Tree-sitter AST nodes, and extracts symbol contracts |
 | 3 | **Dependency** | Queries the static import graph to build upstream/downstream call graph |
-| 4 | **Impact** | Traverses the graph to calculate regression blast radius |
-| 5 | **Search** | Retrieves relevant code snippets via 3-layer hybrid RAG |
-| 6 | **Test Discovery** | Indexes existing test frameworks and identifies coverage gaps |
-| 7 | **Test Generator** | Synthesizes unit tests matching repository code style via LLM |
-| 8 | **Execution** | Runs tests in isolated subprocess environments |
-| 9 | **Failure Analysis** | Parses stdout/stderr and generates root-cause diagnostic reports |
-| 10 | **Review** | Aggregates risk metrics and generated code into PR review comments |
+| 4 | **Impact** | Traverses the graph to calculate layered regression blast radius |
+| 5 | **Search** | Retrieves globally ranked code snippets from symbol-level vector chunks |
+| 6 | **Test Discovery** | Indexes existing tests, resolves test-to-source coverage, and detects framework config |
+| 7 | **Risk Ranker** | Fuses blast radius, coverage and test history into ranked test targets |
+| 8 | **Context Controller** | Scores context sufficiency, retries retrieval impact-aware, and can decline generation |
+| 9 | **Test Generator** | Synthesizes unit tests from contracts, ranked targets and repository style via LLM |
+| 10 | **Review** | Aggregates risk metrics, context health, repair and mutation results into PR review comments |
 | 11 | **Documentation** | Detects API documentation drift and generates spec updates |
+
+The verify phase is **not** an agent graph. `app/verify/` is a contracts-first engine with a deterministic controller and four tools:
+
+| Tool | Responsibility |
+| :--- | :--- |
+| `execute` | Runs the selected tests in the sandbox and parses JUnit XML |
+| `repair_tests` | Repairs generated tests only (source patches are proposals, never applied) |
+| `propose_source_patch` | Produces a source patch for review |
+| `probe_mutations` | Injects AST mutants and measures whether the tests kill them |
 
 ---
 
@@ -162,6 +172,24 @@ The agents are separated by responsibility to keep planning, static analysis, re
 | VCS providers supported | 5 (GitHub · Bitbucket · GitLab · Azure DevOps · PAT) |
 | Embedding dimensions | 384-dim dense vectors (Sentence-Transformers) |
 | Test frameworks supported | PyTest · Jest/Vitest · JUnit · Go Test |
+
+---
+
+## Empirical Benchmark: 100 Real GitHub Revert PRs
+
+To validate TestPilot AI against real-world production failures, we evaluated the platform across **100 real historical PRs** that were merged and subsequently **reverted in production** across 6 core open-source repositories (`click`, `marshmallow`, `pluggy`, `requests`, `cachetools`, `iniconfig`).
+
+### Benchmark Highlights (Zero-Test-Vacuum Scenario)
+- **76.0% (76/100) Live Adversarial Defect Intercept**: Synthesized standalone zero-leakage pytest suites from scratch that reproduced the exact regression in physical sandboxes.
+- **13.0% (13/100) AST Semantic Fast-Path**: Safely bypassed non-behavioral documentation and formatting commits in `< 1ms` with 0 Token cost.
+- **9.0% (9/100) Static Contract Guards**: Intercepted `.pyi` / `@overload` type drift and falsy control flow traps before execution.
+- **98.0% (98/100) Combined Safety Gate Coverage**: Only 2 residual escapes across 100 real incident PRs.
+- **Execution Speed**: 3-concurrency physical Git Worktree isolation completed all 100 PRs in **581.08s (~9.6 mins)**.
+
+Detailed evaluation reports and data:
+- [100 PR Live LLM 0-to-1 Adversarial Benchmark](docs/benchmarks/eval_100_live_llm_zero_to_one.md)
+- [100 PR Multi-Gate Multi-Repo Benchmark Report](docs/benchmarks/eval_100_real_github_reverts_optimized.md)
+- [Zero-to-One Synthesis Case Studies (RPR-097 & RPR-071)](docs/benchmarks/eval_live_llm_zero_to_one_report.md)
 
 ---
 
@@ -219,6 +247,7 @@ See the [Developer Setup Guide](docs/setup.md) for local development, environmen
 | [**Implementation Roadmap**](docs/plans/01_INITIAL_IMPLEMENTATION_PLAN.md) | Chronological development roadmap & milestones | Phase-by-phase implementation logs |
 | [**Release v1.1.0 Record**](docs/plans/05_RELEASE_V1_1_MULTIVCS_AND_PARALLEL_LANGGRAPH.md) | Release v1.1.0 features & test results | Multi-VCS, secured webhooks, parallel LangGraph |
 | [**Version 2.0.0 Roadmap**](docs/plans/06_VERSION2_ROADMAP.md) | v2.0 enterprise roadmap & milestones | Docker sandbox, auto-remediation, RBAC |
+| [**Context Agents Optimization Report**](docs/plans/07_CONTEXT_AGENTS_OPTIMIZATION_REPORT.md) | Audit & remediation of the impact/search/discovery context pipeline | Retrieval correctness, layered blast radius, coverage mapping, selective execution |
 
 ---
 

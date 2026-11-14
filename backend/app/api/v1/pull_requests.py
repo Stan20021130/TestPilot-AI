@@ -85,6 +85,13 @@ async def get_pull_request(
         **PullRequestResponse.model_validate(pr).model_dump(),
         affected_modules=json.loads(pr.affected_modules or "[]"),
         risk_factors=json.loads(pr.risk_factors or "[]"),
+        analysis_warnings=json.loads(pr.analysis_warnings or "[]"),
+        analysis_decisions=json.loads(pr.analysis_decisions or "[]"),
+        verify_exit_reason=pr.verify_exit_reason,
+        verify_engine=pr.verify_engine,
+        verify_rounds=pr.verify_rounds,
+        context_mode=pr.context_mode,
+        generation_plan_summary=json.loads(pr.generation_plan_summary or "{}"),
     )
     return APIResponse(data=response)
 

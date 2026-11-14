@@ -6,6 +6,7 @@ and time-series PR trends.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -13,6 +14,17 @@ from pydantic import BaseModel, Field
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def count_analysis_warnings(raw: str | None) -> int:
+    """Count persisted analysis warnings stored as a JSON list."""
+    if not raw:
+        return 0
+    try:
+        data = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return 0
+    return len(data) if isinstance(data, list) else 0
 
 
 class EvalOpsPRTrendPoint(BaseModel):
@@ -77,6 +89,22 @@ class EvalOpsMetricsSummary(BaseModel):
         default=36.4,
         description="Percentage reduction in prompt tokens achieved via priority context pruning",
     )
+    context_warning_rate: float = Field(
+        default=0.0,
+        description="Percentage of recent PR analyses that emitted degraded-context warnings",
+    )
+    verify_green_rate: float = Field(
+        default=0.0,
+        description="Percentage of recent verify loops that exited green",
+    )
+    verify_budget_exhaustion_rate: float = Field(
+        default=0.0,
+        description="Percentage of recent verify loops stopped by the round budget",
+    )
+    context_declined_rate: float = Field(
+        default=0.0,
+        description="Percentage of recent runs where context was insufficient",
+    )
     avg_generation_latency_seconds: float = Field(
         description="Average wall-clock seconds in test generator"
     )
@@ -114,6 +142,29 @@ class EvalOpsCollector:
                     select(PullRequest).order_by(PullRequest.created_at.desc()).limit(7)
                 )
                 prs = list(res.scalars().all())
+
+                warning_rate = 0.0
+                green_rate = 0.0
+                budget_rate = 0.0
+                declined_rate = 0.0
+                if prs:
+                    warned = sum(
+                        1 for pr in prs if count_analysis_warnings(pr.analysis_warnings) > 0
+                    )
+                    warning_rate = round(warned / len(prs) * 100, 1)
+
+                    completed = [pr for pr in prs if getattr(pr, "verify_exit_reason", None)]
+                    if completed:
+                        green = sum(1 for pr in completed if pr.verify_exit_reason == "green")
+                        budget = sum(
+                            1 for pr in completed if pr.verify_exit_reason == "budget_exhausted"
+                        )
+                        green_rate = round(green / len(completed) * 100, 1)
+                        budget_rate = round(budget / len(completed) * 100, 1)
+                    declined = sum(
+                        1 for pr in prs if getattr(pr, "context_mode", None) == "insufficient"
+                    )
+                    declined_rate = round(declined / len(prs) * 100, 1)
 
                 has_real_agent_runs = False
                 if prs:
@@ -182,6 +233,10 @@ class EvalOpsCollector:
                             total_output_tokens=int(total_tokens_sum * 0.3) or 31200,
                             estimated_usd_cost=round(latest_pt.estimated_usd * 8.5, 3),
                             prompt_vs_context_ratio=0.88,
+                            context_warning_rate=warning_rate,
+                            verify_green_rate=green_rate,
+                            verify_budget_exhaustion_rate=budget_rate,
+                            context_declined_rate=declined_rate,
                             avg_generation_latency_seconds=avg_gen_lat,
                             avg_execution_latency_seconds=2.2,
                             avg_queue_wait_seconds=0.4,

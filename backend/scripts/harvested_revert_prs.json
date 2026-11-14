@@ -1,0 +1,1059 @@
+[
+  {
+    "repo": "psf/requests",
+    "number": 6767,
+    "title": "Revert caching a default SSLContext",
+    "html_url": "https://github.com/psf/requests/pull/6767",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/6767"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 7011,
+    "title": "v2.32.5",
+    "html_url": "https://github.com/psf/requests/pull/7011",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/7011"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 7431,
+    "title": "Fix mutability issues with headers input types",
+    "html_url": "https://github.com/psf/requests/pull/7431",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/7431"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 7433,
+    "title": "Fix `prepare_body` stream detection for `__getattr__`-based file wrappers",
+    "html_url": "https://github.com/psf/requests/pull/7433",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/7433"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 7441,
+    "title": "Move Request.headers back to Mapping",
+    "html_url": "https://github.com/psf/requests/pull/7441",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/7441"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 7026,
+    "title": "Bump actions/setup-python from 5.6.0 to 6.0.0",
+    "html_url": "https://github.com/psf/requests/pull/7026",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/7026"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 7492,
+    "title": "Bump github/codeql-action from 4.35.1 to 4.36.0 in the actions group",
+    "html_url": "https://github.com/psf/requests/pull/7492",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/7492"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 7073,
+    "title": "Bump actions/download-artifact from 5.0.0 to 6.0.0",
+    "html_url": "https://github.com/psf/requests/pull/7073",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/7073"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 6716,
+    "title": "Allow for overriding of specific pool key params",
+    "html_url": "https://github.com/psf/requests/pull/6716",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/6716"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 6774,
+    "title": "remove setuptools test command",
+    "html_url": "https://github.com/psf/requests/pull/6774",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/6774"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 6612,
+    "title": "docs: specify sphinx dirhtml builder, use references instead of absolutes",
+    "html_url": "https://github.com/psf/requests/pull/6612",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/6612"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 6036,
+    "title": "Limit size of payload in JSONDecodeError",
+    "html_url": "https://github.com/psf/requests/pull/6036",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/6036"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 5856,
+    "title": "Fix inconsistent exception type in response.json() method",
+    "html_url": "https://github.com/psf/requests/pull/5856",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/5856"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 3486,
+    "title": "reverting 3362",
+    "html_url": "https://github.com/psf/requests/pull/3486",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/3486"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 2598,
+    "title": "Partially revert ab84f9be5740d4649d734e73b84f17f85e52ffc9",
+    "html_url": "https://github.com/psf/requests/pull/2598",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/2598"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 2458,
+    "title": "Revert \"Update certificate bundle.\"",
+    "html_url": "https://github.com/psf/requests/pull/2458",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/2458"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 5353,
+    "title": "Revert incomplete PRs",
+    "html_url": "https://github.com/psf/requests/pull/5353",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/5353"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 2514,
+    "title": "Revert \"Minor Patch TypeError thrown\"",
+    "html_url": "https://github.com/psf/requests/pull/2514",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/2514"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 4898,
+    "title": "revert azure pipeline changes",
+    "html_url": "https://github.com/psf/requests/pull/4898",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/4898"
+  },
+  {
+    "repo": "psf/requests",
+    "number": 3738,
+    "title": "Revert \"Restrict URL preparation to HTTP/HTTPS\"",
+    "html_url": "https://github.com/psf/requests/pull/3738",
+    "pull_request_url": "https://api.github.com/repos/psf/requests/pulls/3738"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 3905,
+    "title": "Remove issue and PR references outside the changelog",
+    "html_url": "https://github.com/pallets/click/pull/3905",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/3905"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 3008,
+    "title": "Revert \"Revert \"Merge Stable into master\"\"",
+    "html_url": "https://github.com/pallets/click/pull/3008",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/3008"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 3866,
+    "title": "Deprecate parameter names that are: not a Python identifier, or a Python Keyword, or not lower-cased",
+    "html_url": "https://github.com/pallets/click/pull/3866",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/3866"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 3007,
+    "title": "Revert \"Merge Stable into master\"",
+    "html_url": "https://github.com/pallets/click/pull/3007",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/3007"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 965,
+    "title": "Revert 60ef759: move \"fcntl\" import",
+    "html_url": "https://github.com/pallets/click/pull/965",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/965"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 1832,
+    "title": "revert adding space between option help",
+    "html_url": "https://github.com/pallets/click/pull/1832",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/1832"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 1686,
+    "title": "Revert \"Add python 3.9 to CI.\"",
+    "html_url": "https://github.com/pallets/click/pull/1686",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/1686"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 1543,
+    "title": "Revert \"Use shlex.quote for quoting shell arguments\"",
+    "html_url": "https://github.com/pallets/click/pull/1543",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/1543"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 3391,
+    "title": "Add capture mode to `CliRunner` and revert default `fileno` exposure",
+    "html_url": "https://github.com/pallets/click/pull/3391",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/3391"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 3239,
+    "title": "Reconcile default value passing and default activation",
+    "html_url": "https://github.com/pallets/click/pull/3239",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/3239"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 3671,
+    "title": "Update documentation following Colorama removal",
+    "html_url": "https://github.com/pallets/click/pull/3671",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/3671"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 3697,
+    "title": "Pre-8.5.0 release changelog and doc fixes",
+    "html_url": "https://github.com/pallets/click/pull/3697",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/3697"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 1965,
+    "title": "Across the codebase, handle the case a keyword argument is provided but set to `None`",
+    "html_url": "https://github.com/pallets/click/pull/1965",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/1965"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 1615,
+    "title": "Show full subcommand names when using --help in aliasedgroup",
+    "html_url": "https://github.com/pallets/click/pull/1615",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/1615"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 2950,
+    "title": "Alter readthedocs to prep for building to build html, htmlzip, and pdf docs. ",
+    "html_url": "https://github.com/pallets/click/pull/2950",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/2950"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 2212,
+    "title": "Improve type hints",
+    "html_url": "https://github.com/pallets/click/pull/2212",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/2212"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 1685,
+    "title": "Add python 3.9 to CI.",
+    "html_url": "https://github.com/pallets/click/pull/1685",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/1685"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 1594,
+    "title": "raise ValueError for duplicate flags",
+    "html_url": "https://github.com/pallets/click/pull/1594",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/1594"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 517,
+    "title": "Docstring additions and typo fixes",
+    "html_url": "https://github.com/pallets/click/pull/517",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/517"
+  },
+  {
+    "repo": "pallets/click",
+    "number": 2004,
+    "title": "Fix default values of multiple options with optional values",
+    "html_url": "https://github.com/pallets/click/pull/2004",
+    "pull_request_url": "https://api.github.com/repos/pallets/click/pulls/2004"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2865,
+    "title": "Bump actions/download-artifact from 5 to 6",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2865",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2865"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2855,
+    "title": "Bump actions/setup-python from 5 to 6",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2855",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2855"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2779,
+    "title": "Revert \"Add type annotation for set_class (#2777)\"",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2779",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2779"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2181,
+    "title": "Typing: replace \"type\" with specific metaclass",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2181",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2181"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2290,
+    "title": "Bump sphinx from 7.4.4 to 7.4.7",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2290",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2290"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2320,
+    "title": "Bump sphinx from 8.0.2 to 8.1.0",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2320",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2320"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2238,
+    "title": "Bump actions/download-artifact from 3 to 4",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2238",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2238"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2163,
+    "title": "Bump mypy from 1.4.1 to 1.5.0",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2163",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2163"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2111,
+    "title": "Minor DateTime field logic refactor",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2111",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2111"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2139,
+    "title": "Bump mypy from 1.4.0 to 1.4.1",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2139",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2139"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2138,
+    "title": "Bump mypy from 1.3.0 to 1.4.0",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2138",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2138"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2122,
+    "title": "Bump sphinx from 6.2.0 to 6.2.1",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2122",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2122"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2155,
+    "title": "Bump sphinx from 7.0.1 to 7.1.0",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2155",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2155"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2128,
+    "title": "Bump mypy from 1.2.0 to 1.3.0",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2128",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2128"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2121,
+    "title": "Bump sphinx from 6.1.3 to 6.2.0",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2121",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2121"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2086,
+    "title": "Bump sphinx from 5.3.0 to 6.1.3",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2086",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2086"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2044,
+    "title": "Merge EnumSymbol and EnumValue into Enum field",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2044",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2044"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2068,
+    "title": "Bump mypy from 0.982 to 0.990",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2068",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2068"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 2063,
+    "title": "Bump sphinx from 5.2.3 to 5.3.0",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/2063",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/2063"
+  },
+  {
+    "repo": "marshmallow-code/marshmallow",
+    "number": 1926,
+    "title": "Use type hints made available in Python 3.9 and 3.10.",
+    "html_url": "https://github.com/marshmallow-code/marshmallow/pull/1926",
+    "pull_request_url": "https://api.github.com/repos/marshmallow-code/marshmallow/pulls/1926"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 1496,
+    "title": "Fix `optional` validator to accept tuples of len > 1",
+    "html_url": "https://github.com/python-attrs/attrs/pull/1496",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/1496"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 1542,
+    "title": "Update mypy to 1.20.1",
+    "html_url": "https://github.com/python-attrs/attrs/pull/1542",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/1542"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 1342,
+    "title": "Opt into uploading PEP 740 digital publish attestations to PyPI",
+    "html_url": "https://github.com/python-attrs/attrs/pull/1342",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/1342"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 1337,
+    "title": "Fix license definition in project metadata",
+    "html_url": "https://github.com/python-attrs/attrs/pull/1337",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/1337"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 1380,
+    "title": "Make attrs.converters.pipe only return a Converter instance if one is passed",
+    "html_url": "https://github.com/python-attrs/attrs/pull/1380",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/1380"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 1200,
+    "title": "Add support for cached_properties to slotted attrs classes.",
+    "html_url": "https://github.com/python-attrs/attrs/pull/1200",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/1200"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 1163,
+    "title": "Update examples.md",
+    "html_url": "https://github.com/python-attrs/attrs/pull/1163",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/1163"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 1146,
+    "title": "Use a distinct file name for default python versions",
+    "html_url": "https://github.com/python-attrs/attrs/pull/1146",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/1146"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 1067,
+    "title": "Switch changelog to markdown",
+    "html_url": "https://github.com/python-attrs/attrs/pull/1067",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/1067"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 983,
+    "title": "Use enum for typing NOTHING",
+    "html_url": "https://github.com/python-attrs/attrs/pull/983",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/983"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 951,
+    "title": "Complete error signature of _InValidator",
+    "html_url": "https://github.com/python-attrs/attrs/pull/951",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/951"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 991,
+    "title": "Speedup `_setattr` usage and fix slight performance regressions",
+    "html_url": "https://github.com/python-attrs/attrs/pull/991",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/991"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 806,
+    "title": "Revert recursive evolve",
+    "html_url": "https://github.com/python-attrs/attrs/pull/806",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/806"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 787,
+    "title": "New attr.cmp_using helper function",
+    "html_url": "https://github.com/python-attrs/attrs/pull/787",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/787"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 815,
+    "title": "Add __match_args__ to support match case destructuring in Python 3.10",
+    "html_url": "https://github.com/python-attrs/attrs/pull/815",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/815"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 539,
+    "title": "Fix closure cell rewriting on 3.8",
+    "html_url": "https://github.com/python-attrs/attrs/pull/539",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/539"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 499,
+    "title": "Use isolated builds",
+    "html_url": "https://github.com/python-attrs/attrs/pull/499",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/499"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 359,
+    "title": "Typo fixes in contribution guide",
+    "html_url": "https://github.com/python-attrs/attrs/pull/359",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/359"
+  },
+  {
+    "repo": "python-attrs/attrs",
+    "number": 425,
+    "title": "Some new validators",
+    "html_url": "https://github.com/python-attrs/attrs/pull/425",
+    "pull_request_url": "https://api.github.com/repos/python-attrs/attrs/pulls/425"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 787,
+    "title": "docs: remove outdated hookimpl default args paragraph",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/787",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/787"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 727,
+    "title": "Point the missing-argument warning at the code making the hook call",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/727",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/727"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 660,
+    "title": "build(deps): bump codecov/codecov-action from 5 to 6",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/660",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/660"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 646,
+    "title": "Fix _remove_plugin and get_hookcallers for multi-impl plugins",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/646",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/646"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 619,
+    "title": "build(deps): bump actions/download-artifact from 5 to 6",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/619",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/619"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 605,
+    "title": "build(deps): bump actions/setup-python from 5 to 6",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/605",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/605"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 312,
+    "title": "Restore use_scm_version in setup.py",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/312",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/312"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 206,
+    "title": "Revert \"Switch to importlib-metadata\"",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/206",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/206"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 214,
+    "title": "Revert varnames() refactor to use inspect.Signature",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/214",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/214"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 215,
+    "title": "importlib-metadata again",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/215",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/215"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 42,
+    "title": "Hook call mismatch warnings",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/42",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/42"
+  },
+  {
+    "repo": "pytest-dev/pluggy",
+    "number": 30,
+    "title": "fix #17 by considering only routines",
+    "html_url": "https://github.com/pytest-dev/pluggy/pull/30",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pluggy/pulls/30"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 15057,
+    "title": "fixtures: remove dead dedupe code in `--fixtures` implementation",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/15057",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/15057"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 15193,
+    "title": "feat(mark): expose `pytest.ParameterSet` in public API (#13431)",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/15193",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/15193"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14984,
+    "title": "fixtures: use a better data structure for storing FixtureDefs",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14984",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14984"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14913,
+    "title": "[ruff] Apply unsafe autofixes from ruff 0.16",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14913",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14913"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14211,
+    "title": "Simplify pytest_report_teststatus for subtests",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14211",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14211"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14910,
+    "title": "fix(MonkeyPatch): register undo entry only after a successful mutation (delattr/setitem/delitem) (#14909)",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14910",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14910"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14597,
+    "title": "Revert \"fixtures: remove no longer needed special case in `pytest_generate_tests`\"",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14597",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14597"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14604,
+    "title": "[PR #14597/77723b8c backport][9.1.x] Revert \"fixtures: remove no longer needed special case in `pytest_generate_tests`\"",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14604",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14604"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 15006,
+    "title": "approx: Decimal and numpy cleanup",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/15006",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/15006"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14833,
+    "title": "Accept MarkDecorator as get_closest_marker default",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14833",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14833"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14758,
+    "title": "Replace string nodeids with a structured NodeId internally",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14758",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14758"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14257,
+    "title": "docs: explain +/- markers in failed string equality diffs",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14257",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14257"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14807,
+    "title": "refactor: dispatch config file loading by filename, then suffix",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14807",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14807"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14366,
+    "title": "[9.0.x] Revert \"Fix: assertrepr_compare respects dict insertion order (#14050) (#14193)\"",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14366",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14366"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14193,
+    "title": "[PR #14050/966edc9d backport][9.0.x] Fix: assertrepr_compare respects dict insertion order",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14193",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14193"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14658,
+    "title": "build(deps): Bump anyio from 4.13.0 to 4.14.0 in /testing/plugins_integration",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14658",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14658"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14353,
+    "title": "build(deps): Bump codecov/codecov-action from 5.5.2 to 6.0.0",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14353",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14353"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 12313,
+    "title": "pathlib: Fix module path used when using importlib with namespaces",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/12313",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/12313"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 14196,
+    "title": "subtests: fix inconcistent handling of non-string messages",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/14196",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/14196"
+  },
+  {
+    "repo": "pytest-dev/pytest",
+    "number": 9710,
+    "title": "Revert \"Deprecate raising unittest.SkipTest to skip tests during collection\"",
+    "html_url": "https://github.com/pytest-dev/pytest/pull/9710",
+    "pull_request_url": "https://api.github.com/repos/pytest-dev/pytest/pulls/9710"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 6095,
+    "title": "Replace the use of private `monkeypatch` fixture API",
+    "html_url": "https://github.com/pallets/flask/pull/6095",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/6095"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 5393,
+    "title": "fix super call in list comprehension",
+    "html_url": "https://github.com/pallets/flask/pull/5393",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/5393"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 5470,
+    "title": "Bump the github-actions group across 1 directory with 4 updates",
+    "html_url": "https://github.com/pallets/flask/pull/5470",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/5470"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 5374,
+    "title": "Bump the python-requirements group in /requirements with 3 updates",
+    "html_url": "https://github.com/pallets/flask/pull/5374",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/5374"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 5352,
+    "title": "Bump the github-actions group with 2 updates",
+    "html_url": "https://github.com/pallets/flask/pull/5352",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/5352"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 5213,
+    "title": "Bump pypa/gh-action-pypi-publish from 1.8.7 to 1.8.8",
+    "html_url": "https://github.com/pallets/flask/pull/5213",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/5213"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 2006,
+    "title": "Don't passthrough_errors unless instructed.",
+    "html_url": "https://github.com/pallets/flask/pull/2006",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/2006"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 4686,
+    "title": "Small grammatical suggestion",
+    "html_url": "https://github.com/pallets/flask/pull/4686",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/4686"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 3157,
+    "title": "Fix teardown bug in FlaskClient",
+    "html_url": "https://github.com/pallets/flask/pull/3157",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/3157"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 4666,
+    "title": "new preserve context implementation",
+    "html_url": "https://github.com/pallets/flask/pull/4666",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/4666"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 4310,
+    "title": "made ImportError verbose in cli.py",
+    "html_url": "https://github.com/pallets/flask/pull/4310",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/4310"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 4175,
+    "title": "Fix typo in views docs",
+    "html_url": "https://github.com/pallets/flask/pull/4175",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/4175"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 4209,
+    "title": "Bump sphinx from 4.0.2 to 4.1.2",
+    "html_url": "https://github.com/pallets/flask/pull/4209",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/4209"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 4057,
+    "title": "Unused escape import",
+    "html_url": "https://github.com/pallets/flask/pull/4057",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/4057"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 3794,
+    "title": "Ensure session_interface.open_session is called after URL matching",
+    "html_url": "https://github.com/pallets/flask/pull/3794",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/3794"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 4055,
+    "title": "converters have access to session",
+    "html_url": "https://github.com/pallets/flask/pull/4055",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/4055"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 1912,
+    "title": "Revert \"Addressing Issue 1809\"",
+    "html_url": "https://github.com/pallets/flask/pull/1912",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/1912"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 1865,
+    "title": "Revert \"Adds simplejson as a testing target.\"",
+    "html_url": "https://github.com/pallets/flask/pull/1865",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/1865"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 1535,
+    "title": "Revert \"make external_url_handler example py3 compliant\"",
+    "html_url": "https://github.com/pallets/flask/pull/1535",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/1535"
+  },
+  {
+    "repo": "pallets/flask",
+    "number": 3859,
+    "title": "Bump packaging from 20.4 to 20.8",
+    "html_url": "https://github.com/pallets/flask/pull/3859",
+    "pull_request_url": "https://api.github.com/repos/pallets/flask/pulls/3859"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 5372,
+    "title": "Run dummyserver tests over both HTTP and HTTPS",
+    "html_url": "https://github.com/urllib3/urllib3/pull/5372",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/5372"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 5290,
+    "title": "Ensure HTTP/2 probe test uses separate threads",
+    "html_url": "https://github.com/urllib3/urllib3/pull/5290",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/5290"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 5232,
+    "title": "Assert on the ALPN extension in test_tunnel_sets_http_11_alpn",
+    "html_url": "https://github.com/urllib3/urllib3/pull/5232",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/5232"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 5072,
+    "title": "Revert \"Switch to nightly PyPy3.11 in CI for now\"",
+    "html_url": "https://github.com/urllib3/urllib3/pull/5072",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/5072"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 5075,
+    "title": "Bump github/codeql-action from 4.35.1 to 4.36.0",
+    "html_url": "https://github.com/urllib3/urllib3/pull/5075",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/5075"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3696,
+    "title": "Support Python 3.14t",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3696",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3696"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3701,
+    "title": "Bump actions/download-artifact from 5.0.0 to 6.0.0",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3701",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3701"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3620,
+    "title": "Fix IPv6 tunnel_host when using connection_from_host with python < 3.11.9",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3620",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3620"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3670,
+    "title": "Bump actions/setup-python from 5.6.0 to 6.0.0",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3670",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3670"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3466,
+    "title": "Revert \"Add TLS settings for HTTP/2\"",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3466",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3466"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3316,
+    "title": "Fix HTTP version in debug log",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3316",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3316"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3421,
+    "title": "Add support for sending a request body with HTTP/2 #3302",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3421",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3421"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3385,
+    "title": "Bump slsa-framework/slsa-github-generator from 1.10.0 to 2.0.0",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3385",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3385"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3344,
+    "title": "Stop casting request headers to HTTPHeaderDict",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3344",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3344"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3369,
+    "title": "Bump slsa-framework/slsa-github-generator from 1.9.0 to 1.10.0",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3369",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3369"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3345,
+    "title": "Release 2.2.1",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3345",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3345"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3314,
+    "title": "Update mypy library version to 1.8.0",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3314",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3314"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3256,
+    "title": "Remove unnecessary OpenSSL 1.1.1 matrix, push branch jobs",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3256",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3256"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3244,
+    "title": "Fix coverage",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3244",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3244"
+  },
+  {
+    "repo": "urllib3/urllib3",
+    "number": 3169,
+    "title": "Fix lint on Python 3.12",
+    "html_url": "https://github.com/urllib3/urllib3/pull/3169",
+    "pull_request_url": "https://api.github.com/repos/urllib3/urllib3/pulls/3169"
+  }
+]

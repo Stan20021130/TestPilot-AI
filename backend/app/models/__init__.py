@@ -2,6 +2,7 @@
 
 from app.models.agent_run import AgentRun
 from app.models.ai_log import AILog
+from app.models.analysis_checkpoint import AnalysisCheckpoint
 from app.models.base import TimestampMixin, UUIDMixin
 from app.models.bug_history import BugHistory
 from app.models.commit import Commit
@@ -29,6 +30,7 @@ __all__ = [
     "AILog",
     "AgentRun",
     "BugHistory",
+    "AnalysisCheckpoint",
     "UUIDMixin",
     "TimestampMixin",
 ]

@@ -98,30 +98,42 @@ TestPilot AI/
 
 ## The AI Agent Pipeline (LangGraph Workflow)
 
-When a GitHub PR webhook is received, Celery initiates the **PR Analysis Agent Graph**:
+When a GitHub PR webhook is received, Celery initiates the **PR Analysis Graph**. It has 11 agents across a 6-node main graph (planner → context → produce → verify → review → documentation): the context phase collects and fuses evidence into a `GenerationPlan`; `produce` generates tests; the verify engine executes, diagnoses, repairs and probes them.
 
 ```mermaid
 stateDiagram-v2
- [*] --> DiffAgent
- DiffAgent --> DependencyAgent: Identified changed symbols
- DependencyAgent --> SearchAgent: Identified affected dependencies
- SearchAgent --> TestDiscoveryAgent: Found relevant existing tests
- TestDiscoveryAgent --> ExecutionAgent: Ran existing test suite
- ExecutionAgent --> FailureAnalysisAgent: If tests failed
- ExecutionAgent --> TestGeneratorAgent: If code lacks coverage
- FailureAnalysisAgent --> ReviewAgent
- TestGeneratorAgent --> ReviewAgent
- ReviewAgent --> [*]: Post PR review & metrics
+ [*] --> PlannerAgent
+ PlannerAgent --> DiffAgent
+ DiffAgent --> DependencyAgent : 有变更符号
+ DiffAgent --> ReviewAgent : 无变更符号
+ DependencyAgent --> ImpactAgent
+ DependencyAgent --> SearchAgent
+ DependencyAgent --> TestDiscoveryAgent
+ ImpactAgent --> RankerAgent
+ SearchAgent --> RankerAgent
+ TestDiscoveryAgent --> RankerAgent
+ RankerAgent --> ControllerAgent
+ ControllerAgent --> GeneratorAgent : generation_plan
+ GeneratorAgent --> VerifyEngine : 有测试
+ GeneratorAgent --> ReviewAgent : 无测试
+ VerifyEngine --> ReviewAgent : verification
+ ReviewAgent --> DocumentationAgent
+ DocumentationAgent --> [*]
 ```
 
-1. **`DiffAgent`**: Fetches the raw PR patch, parses changed line ranges using Tree-sitter, and registers updated functions, classes, and routes.
-2. **`DependencyAgent`**: Traces imports to discover downstream modules and REST APIs that are impacted by changed components.
-3. **`SearchAgent`**: Queries Qdrant to find semantically similar code snippets or historically buggy functions in the codebase.
-4. **`TestDiscoveryAgent`**: Maps impacted files to their corresponding test suites.
-5. **`ExecutionAgent`**: Runs the identified test files in a sandboxed process.
-6. **`FailureAnalysisAgent`**: Triggered only if tests fail. Inspects stack traces to provide a structured explanation of the bug.
-7. **`TestGeneratorAgent`**: Synthesizes newly added/modified code that has low coverage and writes unit tests to cover them.
-8. **`ReviewAgent`**: Compiles all outputs, computes risk scores (0.0 to 10.0), and publishes a complete markdown report to the PR comment thread.
+1. **`PlannerAgent`**: Validates the run contract (PR, head SHA, workspace) before anything expensive starts.
+2. **`DiffAgent`**: Parses the PR patch, maps changed lines to Tree-sitter symbols, and extracts symbol contracts.
+3. **`DependencyAgent`**: Loads the import graph so impact can be traversed instead of guessed.
+4. **`ImpactAgent`**: Reverse-BFS over the graph, producing layered blast radius (direct / transitive), affected APIs and covering tests.
+5. **`SearchAgent`**: Embeds each changed symbol and retrieves ranked, de-duplicated code from Qdrant.
+6. **`TestDiscoveryAgent`**: Maps changed files to existing tests and detects the repository's test framework and command.
+7. **`RiskRankerAgent`**: Fuses impact, coverage, history and contracts into ranked test targets with reasons.
+8. **`ContextControllerAgent`**: Scores context sufficiency (full / degraded / insufficient) and runs an impact-aware second retrieval pass.
+9. **`TestGeneratorAgent`**: Writes tests against real contracts and source, with bounded feedback and coverage top-ups.
+10. **`ReviewAgent`**: Aggregates risk, context health and verify evidence into the PR comment.
+11. **`DocumentationAgent`**: Flags API documentation drift for changed routes.
+
+The verify phase is a contracts-first engine (`app/verify/`), not an agent graph. Its tools are `execute`, `repair_tests`, `propose_source_patch` and `probe_mutations`; `finish` is control flow. The controller owns the round/repair/mutation budgets, the ledger and the final verdict.
 
 ---
 

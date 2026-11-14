@@ -295,12 +295,38 @@ async def _persist_index_results(
     }
 
 
+def _slice_source(
+    source_lines: list[str] | None,
+    line_start: int,
+    line_end: int,
+    max_chars: int = 1500,
+) -> str:
+    """Extract the source text a symbol occupies (1-based, inclusive).
+
+    Falls back to an empty string when the file could not be read or the line
+    range is nonsensical, so callers can decide what to store instead.
+    """
+    if not source_lines:
+        return ""
+    start = max(1, line_start)
+    end = min(len(source_lines), max(start, line_end))
+    if start > len(source_lines):
+        return ""
+    return "\n".join(source_lines[start - 1 : end])[:max_chars]
+
+
 async def _generate_and_store_embeddings(
     repository_id: str,
     parse_results: list[Any],
     repo_path: Path,
 ) -> None:
-    """Generate embeddings for code chunks and store in Qdrant."""
+    """Generate embeddings for code chunks and store them in Qdrant.
+
+    Payloads carry the *actual source text* of each symbol, not just a label:
+    the Search Agent hands ``payload["content"]`` straight to the Test
+    Generator prompt, so a label such as "function foo in app/x.py" gives the
+    model nothing to write assertions against.
+    """
     try:
         qdrant = get_qdrant_client()
 
@@ -320,10 +346,26 @@ async def _generate_and_store_embeddings(
             except ValueError:
                 rel_path = result.file_path
 
+            # Read the file once per AST result and slice symbol bodies from it.
+            source_lines: list[str] | None = None
+            try:
+                abs_file = repo_path / rel_path
+                if abs_file.is_file():
+                    source_lines = abs_file.read_text(
+                        encoding="utf-8", errors="ignore"
+                    ).splitlines()
+            except OSError:
+                source_lines = None
+
             # Embed functions
             for fn in (result.functions or [])[:20]:
-                text = f"function {fn.name} in {rel_path} language:{result.language}"
-                embedding = model.encode(text).tolist() if model is not None else [0.0] * 384
+                label = f"function {fn.name} in {rel_path} language:{result.language}"
+                snippet = _slice_source(source_lines, fn.line_start, fn.line_end)
+                embedding = (
+                    model.encode(f"{label}\n{snippet}"[:2000]).tolist()
+                    if model is not None
+                    else [0.0] * 384
+                )
 
                 points.append(
                     {
@@ -334,16 +376,23 @@ async def _generate_and_store_embeddings(
                             "file_path": rel_path,
                             "language": result.language,
                             "function_name": fn.name,
-                            "content": text,
+                            "content": snippet or label,
                             "type": "function",
+                            "line_start": fn.line_start,
+                            "line_end": fn.line_end,
                         },
                     }
                 )
 
             # Embed classes
             for cls in (result.classes or [])[:10]:
-                text = f"class {cls.name} in {rel_path} language:{result.language}"
-                embedding = model.encode(text).tolist() if model is not None else [0.0] * 384
+                label = f"class {cls.name} in {rel_path} language:{result.language}"
+                snippet = _slice_source(source_lines, cls.line_start, cls.line_end)
+                embedding = (
+                    model.encode(f"{label}\n{snippet}"[:2000]).tolist()
+                    if model is not None
+                    else [0.0] * 384
+                )
 
                 points.append(
                     {
@@ -354,37 +403,35 @@ async def _generate_and_store_embeddings(
                             "file_path": rel_path,
                             "language": result.language,
                             "class_name": cls.name,
-                            "content": text,
+                            "content": snippet or label,
                             "type": "class",
+                            "line_start": cls.line_start,
+                            "line_end": cls.line_end,
                         },
                     }
                 )
 
             # Embed file content snippet if file exists
-            try:
-                abs_file = repo_path / rel_path
-                if abs_file.is_file():
-                    content = abs_file.read_text(encoding="utf-8", errors="ignore")[:1000]
-                    if content.strip():
-                        text = f"file {rel_path}\n{content}"
-                        embedding = (
-                            model.encode(text[:500]).tolist() if model is not None else [0.0] * 384
-                        )
-                        points.append(
-                            {
-                                "id": str(uuid.uuid4()),
-                                "vector": embedding,
-                                "payload": {
-                                    "repository_id": repository_id,
-                                    "file_path": rel_path,
-                                    "language": result.language,
-                                    "content": content[:500],
-                                    "type": "file_chunk",
-                                },
-                            }
-                        )
-            except Exception:
-                pass
+            if source_lines:
+                content = "\n".join(source_lines)[:1500]
+                if content.strip():
+                    label = f"file {rel_path}\n{content}"
+                    embedding = (
+                        model.encode(label[:500]).tolist() if model is not None else [0.0] * 384
+                    )
+                    points.append(
+                        {
+                            "id": str(uuid.uuid4()),
+                            "vector": embedding,
+                            "payload": {
+                                "repository_id": repository_id,
+                                "file_path": rel_path,
+                                "language": result.language,
+                                "content": content,
+                                "type": "file_chunk",
+                            },
+                        }
+                    )
 
         with contextlib.suppress(Exception):
             qdrant.delete_collection(collection_name=settings.qdrant_collection_repository_chunks)
@@ -479,3 +526,82 @@ def cleanup_stale_repos() -> dict[str, int]:
             logger.info("Removed stale repository", path=str(repo_dir), age_days=round(age_days, 1))
 
     return {"removed": removed}
+
+
+@celery_app.task(
+    bind=True,
+    name="app.tasks.indexing.reindex_all_repositories",
+    queue="indexing",
+)
+def reindex_all_repositories(
+    self: Task,
+    repository_ids: list[str] | None = None,
+    access_token: str | None = None,
+    force: bool = True,
+    dispatch: bool = True,
+) -> dict[str, Any]:
+    """Re-index repositories whose vector payloads predate the current format.
+
+    Symbol payloads used to store a label ("function foo in app/x.py") instead
+    of the source text, which starves the generator of real code. Existing
+    points are not migrated in place, so a re-index is required after an
+    indexing change.
+
+    Args:
+        repository_ids: Explicit repositories to re-index. When omitted, every
+            repository that has already been indexed is refreshed.
+        access_token: Optional VCS token for private clones.
+        force: Pass ``force_reindex`` through to the indexing task.
+        dispatch: Send work to the Celery queue (True) or run inline (False).
+
+    Returns:
+        Summary with the number and identity of the repositories processed.
+    """
+    return asyncio.run(
+        _reindex_all(
+            repository_ids=repository_ids,
+            access_token=access_token,
+            force=force,
+            dispatch=dispatch,
+        )
+    )
+
+
+async def _reindex_all(
+    repository_ids: list[str] | None = None,
+    access_token: str | None = None,
+    force: bool = True,
+    dispatch: bool = True,
+) -> dict[str, Any]:
+    """Enumerate target repositories and re-index each one."""
+    async with get_session() as db:
+        stmt = select(Repository)
+        if repository_ids:
+            stmt = stmt.where(Repository.id.in_(repository_ids))
+        else:
+            stmt = stmt.where(Repository.is_indexed.is_(True))
+
+        repositories = list((await db.execute(stmt)).scalars().all())
+
+    processed: list[dict[str, str]] = []
+    for repo in repositories:
+        kwargs = {
+            "repository_id": repo.id,
+            "clone_url": repo.clone_url,
+            "access_token": access_token,
+            "force_reindex": force,
+            "branch": repo.default_branch,
+        }
+        if dispatch:
+            index_repository.delay(**kwargs)
+        else:
+            index_repository(**kwargs)
+        processed.append({"repository_id": repo.id, "full_name": repo.full_name})
+
+    logger.info(
+        "Re-index dispatched",
+        repositories=len(processed),
+        force=force,
+        dispatch=dispatch,
+    )
+    return {"dispatched": len(processed), "repositories": processed}

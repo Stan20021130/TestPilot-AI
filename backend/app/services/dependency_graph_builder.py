@@ -147,6 +147,39 @@ class DependencyGraphBuilder:
 
         return dependencies
 
+    def get_dependents_with_depth(self, file_path: str, depth: int = 5) -> dict[str, int]:
+        """Map every transitively dependent file to its distance from the change.
+
+        Distance 1 means "directly imports the changed file", 2 means "imports
+        something that imports it", and so on. Callers can therefore separate
+        direct blast radius from transitive spread instead of receiving one
+        flattened set.
+
+        Args:
+            file_path: Relative path of the changed file.
+            depth: Maximum traversal depth.
+
+        Returns:
+            Dictionary of ``dependent_path -> depth``. Empty when the file is
+            not part of the graph.
+        """
+        if not self.graph.has_node(file_path):
+            return {}
+
+        reversed_graph = self.graph.reverse()
+        try:
+            lengths = nx.single_source_shortest_path_length(
+                reversed_graph, file_path, cutoff=depth
+            )
+        except nx.NetworkXError:
+            return {}
+
+        return {node: dist for node, dist in lengths.items() if node != file_path and dist > 0}
+
+    def is_known(self, file_path: str) -> bool:
+        """True when the file participates in the dependency graph."""
+        return self.graph.has_node(file_path)
+
     def get_affected_by_changes(
         self,
         changed_files: list[str],
@@ -173,6 +206,23 @@ class DependencyGraphBuilder:
                 file=file_path,
                 dependents=len(dependents),
             )
+        return affected
+
+    def get_affected_with_depth(
+        self,
+        changed_files: list[str],
+        depth: int = 5,
+    ) -> dict[str, dict[str, int]]:
+        """Depth-preserving variant of :meth:`get_affected_by_changes`.
+
+        Returns:
+            Mapping of ``changed_file -> {dependent_path: depth}`` while
+            retaining which changed file caused each dependency (a file can be
+            reached from several changes at different distances).
+        """
+        affected: dict[str, dict[str, int]] = {}
+        for file_path in changed_files:
+            affected[file_path] = self.get_dependents_with_depth(file_path, depth=depth)
         return affected
 
     def get_test_files_for(self, file_path: str) -> list[str]:
@@ -262,9 +312,19 @@ class DependencyGraphBuilder:
         """
         builder = cls(repo_root)
         for record in records:
+            source = record["source_node"]
+            target = record["target_node"]
+            # Materialise nodes explicitly: add_edge() would create them
+            # implicitly without attributes, which silently disables
+            # test-file detection downstream (get_test_files_for relies on
+            # the is_test flag). Edge records do not persist node attributes,
+            # so naming conventions are re-applied here.
+            for node in (source, target):
+                if not builder.graph.has_node(node):
+                    builder.graph.add_node(node, is_test=cls._is_test_file(node))
             builder.graph.add_edge(
-                record["source_node"],
-                record["target_node"],
+                source,
+                target,
                 edge_type=record.get("edge_type", "imports"),
             )
         return builder

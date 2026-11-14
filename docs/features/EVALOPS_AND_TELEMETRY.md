@@ -42,6 +42,7 @@ graph TD
 - **Token Telemetry**: Tracks Input Tokens, Output Tokens, and Total Tokens consumed per PR analysis run.
 - **Cost Estimation**: Estimates USD cost per PR run based on LiteLLM model pricing tiers.
 - **Average Cost per PR** (`$0.0034`): Average inference cost per pull request evaluation.
+- **Context Warning Rate**: Percentage of the last 7 PR analyses that emitted degraded-context warnings (empty retrieval, missing checkout, unknown blast radius, LLM fallback). Warnings are persisted per PR in `pull_requests.analysis_warnings` and exported here, so a silently degraded analysis is visible instead of only appearing in worker logs.
 
 ### 4. Time-Series Trends
 - Exposes historical performance metrics across the **Last 7 Pull Requests** for live trend monitoring on the `/monitoring` dashboard.

@@ -81,6 +81,19 @@ class PullRequest(Base, UUIDMixin, TimestampMixin):
     risk_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     risk_factors: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
     affected_modules: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
+    # Non-fatal context degradations raised by the agents during analysis
+    # (empty search results, missing checkout, unknown blast radius, ...).
+    analysis_warnings: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list
+    # Orchestration choices with their evidence (why generation declined, why
+    # a loop stopped, which fallback ran) — JSON list of decision records.
+    analysis_decisions: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list
+
+    # Context/verify outcomes, denormalised for EvalOps aggregation.
+    verify_exit_reason: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    verify_engine: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    verify_rounds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    context_mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    generation_plan_summary: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
 
     # Coverage
     coverage_before: Mapped[float | None] = mapped_column(Float, nullable=True)

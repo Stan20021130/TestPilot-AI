@@ -1,174 +1,117 @@
-"""
-TestPilot AI — LangGraph Multi-Agent Pipeline Graph.
+"""TestPilot AI — LangGraph Multi-Agent Pipeline Graph.
 
-Assembles all agents into a directed LangGraph StateGraph.
-The Planner Agent acts as a supervisor, deciding which agents to invoke.
-Each agent node wraps a focused, single-responsibility agent function.
+The parent graph is deliberately thin; the two expensive phases are subgraphs:
 
-Pipeline flow:
-    planner → diff_agent → dependency_agent → impact_agent
-    → search_agent → test_discovery → test_generator
-    → execution → failure_analysis → review → END
+    planner → context → (verify | review | END) → review → documentation
 
-Conditional routing is used to skip agents when not needed
-(e.g., skip execution if no tests were generated).
+``context`` (diff, dependency, three parallel collectors, risk ranker, context
+controller) produces a ``generation_plan``. ``verify`` is one controller
+(observe → decide → act → settle) whose tools are generate/execute/diagnose/
+repair/mutate; it consumes the plan and produces a ``verification`` outcome.
+The parent only routes between phases; it no longer knows how either phase
+works internally.
+
+The three collectors run in the same superstep, so the channels they share
+(``warnings``, ``decisions``, ``completed_agents``) carry append-only reducers
+defined in :mod:`app.agents.state` — without them LangGraph rejects concurrent
+writes.
+
+Routing gates live in :mod:`app.agents.routing` and are re-exported here for
+backward compatibility.
 """
 
 from __future__ import annotations
 
-from typing import Literal
+from functools import lru_cache
+from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
+from app.agents.context_graph import build_context_graph
+from app.agents.node_guard import guarded
+from app.agents.planner_agent import documentation_agent_node, planner_agent_node
+from app.agents.review_agent import review_agent_node
+from app.agents.routing import should_continue_after_diff, should_start_verify
 from app.agents.state import AgentState
+from app.agents.test_generator_agent import test_generator_agent_node
+from app.agents.verify_graph import build_verify_graph
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-
-# ==============================================================================
-# Import all agent node functions
-# ==============================================================================
-
-from app.agents.dependency_agent import dependency_agent_node
-from app.agents.diff_agent import diff_agent_node
-from app.agents.documentation_agent import documentation_agent_node
-from app.agents.execution_agent import execution_agent_node
-from app.agents.failure_analysis_agent import failure_analysis_agent_node
-from app.agents.impact_agent import impact_agent_node
-from app.agents.planner_agent import planner_agent_node
-from app.agents.review_agent import review_agent_node
-from app.agents.search_agent import search_agent_node
-from app.agents.test_discovery_agent import test_discovery_agent_node
-from app.agents.test_generator_agent import test_generator_agent_node
-
-# ==============================================================================
-# Conditional routing functions
-# ==============================================================================
-
-
-def should_continue_after_diff(
-    state: AgentState,
-) -> Literal["dependency_agent", "review_agent", END]:  # type: ignore[valid-type]
-    """Route after diff agent: stop early if no supported files changed."""
-    if state.get("should_stop"):
-        logger.info("Pipeline stopping early after diff agent")
-        return END
-
-    changed_nodes = state.get("changed_nodes", [])
-    if not changed_nodes:
-        logger.info("No code nodes changed, routing to review agent directly")
-        return "review_agent"
-
-    return "dependency_agent"
-
-
-def should_run_execution(state: AgentState) -> Literal["execution_agent", "review_agent"]:
-    """Route after test generation: skip execution if no tests generated."""
-    generated = state.get("generated_tests", [])
-    if not generated:
-        logger.info("No tests generated, skipping execution")
-        return "review_agent"
-    return "execution_agent"
-
-
-def should_run_failure_analysis(
-    state: AgentState,
-) -> Literal["failure_analysis_agent", "review_agent"]:
-    """Route after execution: run failure analysis only if there are failures."""
-    results = state.get("execution_results", {})
-    if results.get("failed", 0) > 0:
-        return "failure_analysis_agent"
-    return "review_agent"
-
-
-def handle_error(state: AgentState) -> Literal["review_agent", END]:  # type: ignore[valid-type]
-    """Route on error: generate a partial review or terminate."""
-    errors = state.get("errors", [])
-    if len(errors) > 5:
-        logger.error("Too many agent errors, terminating pipeline", errors=errors)
-        return END
-    return "review_agent"
-
-
-# ==============================================================================
-# Build the LangGraph StateGraph
-# ==============================================================================
+# Re-exported for callers and tests that import gates from this module.
+__all__ = [
+    "build_pr_analysis_graph",
+    "get_compiled_graph",
+    "pr_analysis_graph",
+    "should_continue_after_diff",
+    "should_start_verify",
+]
 
 
 def build_pr_analysis_graph() -> StateGraph:
-    """Build and compile the PR analysis LangGraph pipeline.
+    """Assemble the PR analysis pipeline.
 
     Returns:
-        A compiled StateGraph ready for execution via .invoke() or .astream().
+        An uncompiled ``StateGraph``; the module-level ``pr_analysis_graph`` is
+        the compiled instance used by the Celery task.
     """
     graph = StateGraph(AgentState)
 
-    # --- Add agent nodes ---
-    graph.add_node("planner_agent", planner_agent_node)
-    graph.add_node("diff_agent", diff_agent_node)
-    graph.add_node("dependency_agent", dependency_agent_node)
-    graph.add_node("impact_agent", impact_agent_node)
-    graph.add_node("search_agent", search_agent_node)
-    graph.add_node("test_discovery_agent", test_discovery_agent_node)
-    graph.add_node("test_generator_agent", test_generator_agent_node)
-    graph.add_node("execution_agent", execution_agent_node)
-    graph.add_node("failure_analysis_agent", failure_analysis_agent_node)
-    graph.add_node("review_agent", review_agent_node)
-    graph.add_node("documentation_agent", documentation_agent_node)
+    # --- Phase nodes (wrapped so one crash cannot abort the run) ---
+    graph.add_node("planner_agent", guarded("planner_agent", planner_agent_node))
+    graph.add_node("context", build_context_graph().compile())
+    # Produce is its own phase now: the verify loop never generates on entry.
+    graph.add_node("produce", guarded("produce", test_generator_agent_node))
+    graph.add_node("verify", build_verify_graph().compile())
+    graph.add_node("review_agent", guarded("review_agent", review_agent_node))
+    graph.add_node(
+        "documentation_agent",
+        guarded("documentation_agent", documentation_agent_node),
+    )
 
-    # --- Define edges ---
+    # --- Phase transitions ---
     graph.add_edge(START, "planner_agent")
-    graph.add_edge("planner_agent", "diff_agent")
+    graph.add_edge("planner_agent", "context")
+    graph.add_edge("context", "produce")
 
-    # Conditional: skip deep analysis if trivial change
+    # The context subgraph ends with a generation_plan; produce turns it into
+    # tests, then this gate decides whether verify has anything to do. A hard
+    # stop (missing inputs) ends the run.
     graph.add_conditional_edges(
-        "diff_agent",
-        should_continue_after_diff,
+        "produce",
+        should_start_verify,
         {
-            "dependency_agent": "dependency_agent",
+            "verify": "verify",
             "review_agent": "review_agent",
             END: END,
         },
     )
 
-    # Parallel Fan-Out: trigger impact_agent, search_agent, and test_discovery_agent concurrently
-    graph.add_edge("dependency_agent", "impact_agent")
-    graph.add_edge("dependency_agent", "search_agent")
-    graph.add_edge("dependency_agent", "test_discovery_agent")
-
-    # Fan-In Join: all 3 parallel branches merge into test_generator_agent
-    graph.add_edge("impact_agent", "test_generator_agent")
-    graph.add_edge("search_agent", "test_generator_agent")
-    graph.add_edge("test_discovery_agent", "test_generator_agent")
-
-    # Conditional: skip execution if no tests generated
-    graph.add_conditional_edges(
-        "test_generator_agent",
-        should_run_execution,
-        {
-            "execution_agent": "execution_agent",
-            "review_agent": "review_agent",
-        },
-    )
-
-    # Conditional: skip failure analysis if all tests passed
-    graph.add_conditional_edges(
-        "execution_agent",
-        should_run_failure_analysis,
-        {
-            "failure_analysis_agent": "failure_analysis_agent",
-            "review_agent": "review_agent",
-        },
-    )
-
-    graph.add_edge("failure_analysis_agent", "review_agent")
+    graph.add_edge("verify", "review_agent")
     graph.add_edge("review_agent", "documentation_agent")
     graph.add_edge("documentation_agent", END)
 
-    logger.info("PR analysis LangGraph pipeline compiled")
+    logger.info("PR analysis LangGraph pipeline assembled")
     return graph
 
 
-# Compile the graph once at module load time
+# Compiled once at import time without a checkpointer. Kept as the default so
+# unit tests and ad-hoc invocations do not write checkpoint rows.
 pr_analysis_graph = build_pr_analysis_graph().compile()
+
+
+@lru_cache(maxsize=1)
+def get_compiled_graph() -> Any:
+    """Return the graph compiled with the configured checkpointer.
+
+    The Celery task uses this entry point. When checkpointing is disabled or
+    unavailable, the plain compiled graph is returned and runs behave exactly
+    as before (no resume).
+    """
+    from app.agents.checkpointing import get_checkpointer
+
+    checkpointer = get_checkpointer()
+    if checkpointer is None:
+        return pr_analysis_graph
+    return build_pr_analysis_graph().compile(checkpointer=checkpointer)

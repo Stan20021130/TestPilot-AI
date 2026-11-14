@@ -9,6 +9,7 @@ to avoid circular imports.
 from app.database.base_class import Base  # noqa: F401 — re-export for Alembic env.py
 from app.models.agent_run import AgentRun  # noqa: E402, F401
 from app.models.ai_log import AILog  # noqa: E402, F401
+from app.models.analysis_checkpoint import AnalysisCheckpoint  # noqa: E402, F401
 from app.models.bug_history import BugHistory  # noqa: E402, F401
 from app.models.commit import Commit  # noqa: E402, F401
 from app.models.dependency_graph import DependencyEdge  # noqa: E402, F401

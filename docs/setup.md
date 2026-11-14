@@ -51,6 +51,9 @@ POSTGRES_USER=testpilot
 POSTGRES_PASSWORD=testpilot_secret
 POSTGRES_DB=testpilot
 DATABASE_URL=postgresql+asyncpg://testpilot:testpilot_secret@localhost:5432/testpilot
+# Never silently write to a local SQLite file when PostgreSQL is unreachable.
+# Enable this only for throwaway local development.
+ALLOW_SQLITE_FALLBACK=false
 
 # Redis (use localhost instead of Docker service name)
 REDIS_HOST=localhost
@@ -87,6 +90,28 @@ LITELLM_FALLBACK_MODEL=ollama/mistral
 USE_LOCAL_EMBEDDINGS=true
 SENTENCE_TRANSFORMER_MODEL=all-MiniLM-L6-v2
 
+# Execution sandbox (generated tests are untrusted code)
+# subprocess: scrubbed env + POSIX rlimits (default)
+# docker:     network-isolated, read-only container (requires a daemon)
+SANDBOX_MODE=subprocess
+SANDBOX_MEMORY_MB=2048
+SANDBOX_CPU_SECONDS=300
+SANDBOX_DOCKER_IMAGE=python:3.12-slim
+
+# Step cap for the verify engine controller.
+VERIFY_MAX_STEPS=6
+
+# Analysis checkpoints: memory | postgres | off
+# postgres lets a retried PR analysis resume at the interrupted node instead of
+# re-running every LLM stage. Docker installs the required driver; a native
+# Poetry environment defaults to memory unless you add it yourself:
+#   poetry run pip install "langgraph-checkpoint-postgres" "psycopg[binary]"
+CHECKPOINT_BACKEND=memory
+# CHECKPOINT_DSN=postgresql://testpilot:testpilot_secret@localhost:5432/testpilot
+
+# Optional: fetch PR refs for private repositories (public repos need no token)
+GITHUB_TOKEN=
+
 # Frontend
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
@@ -111,6 +136,35 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+---
+
+## Upgrading an Existing Deployment
+
+After pulling a release that changes the indexing or analysis format, run the migrations and (when the vector payload format changed) re-index the repositories:
+
+```bash
+cd backend
+poetry run alembic upgrade head
+
+# This chain adds analysis_warnings, analysis_decisions, the verification/
+# context/engine outcome columns and the analysis_checkpoints bookkeeping table.
+# Graph checkpoint tables themselves are created by the worker on first use when
+# CHECKPOINT_BACKEND=postgres (LangGraph owns that schema, like Celery owns its
+# result backend tables); CHECKPOINT_RETENTION_DAYS controls the daily pruning.
+
+# Re-index every repository already indexed (dispatches to the Celery "indexing" queue)
+poetry run python scripts/reindex_vectors.py
+
+# Private repositories: pass a token, or export GITHUB_TOKEN first
+poetry run python scripts/reindex_vectors.py --token "$GITHUB_TOKEN"
+
+# Only specific repositories, or run inline without a broker
+poetry run python scripts/reindex_vectors.py --repository-id <repo-uuid>
+poetry run python scripts/reindex_vectors.py --sync
+```
+
+Re-indexing is required when symbol payloads change shape: existing Qdrant points are not migrated in place, and stale points degrade the context the Test Generator receives.
 
 ---
 

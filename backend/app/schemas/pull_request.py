@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import Field
 
@@ -44,6 +45,9 @@ class ChangedFile(BaseSchema):
     additions: int
     deletions: int
     old_path: str | None = None  # For renamed files
+    # New-file line numbers added/modified in this file. Empty when the VCS
+    # provider did not return a patch (binary or truncated diff).
+    changed_lines: list[int] = []
 
 
 class DiffSummary(BaseSchema):
@@ -115,9 +119,30 @@ class PullRequestResponse(BaseSchema):
     created_at: datetime
 
 
+class DecisionResponse(BaseSchema):
+    """One orchestration decision recorded during the analysis run."""
+
+    agent: str
+    choice: str
+    reason: str
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    attempt: int | None = None
+    at: str | None = None
+
+
 class PullRequestDetailResponse(PullRequestResponse):
     """Detailed PR response with analysis results."""
 
     affected_modules: list[str] = Field(default_factory=list)
     risk_factors: list[str] = Field(default_factory=list)
+    # Non-fatal degradations from the analysis pipeline (degraded context).
+    analysis_warnings: list[str] = Field(default_factory=list)
+    # Why the pipeline did what it did (declines, loop exits, fallbacks).
+    analysis_decisions: list[DecisionResponse] = Field(default_factory=list)
+    # Denormalised outcomes for dashboards/EvalOps.
+    verify_exit_reason: str | None = None
+    verify_engine: str | None = None
+    verify_rounds: int | None = None
+    context_mode: str | None = None
+    generation_plan_summary: dict[str, Any] = Field(default_factory=dict)
     review_summary: str | None = None

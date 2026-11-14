@@ -3,6 +3,7 @@ from pathlib import Path
 
 import litellm
 from fastapi import APIRouter, HTTPException
+from qdrant_client import models
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DBSession
@@ -23,6 +24,7 @@ from app.schemas.ai import (
 )
 from app.schemas.common import APIResponse
 from app.services.dependency_graph_builder import DependencyGraphBuilder
+from app.services.embedding_service import get_embedding_service
 from app.utils.qdrant_client import get_qdrant_client
 
 logger = get_logger(__name__)
@@ -63,15 +65,25 @@ async def chat_with_codebase(
     context_text = ""
 
     try:
-        results = qdrant.search(  # type: ignore[attr-defined]
+        # Embed the query: a vector store needs a vector, and qdrant-client
+        # rejects raw dicts as filters, so both the vector and a Filter object
+        # are required here.
+        query_vector = get_embedding_service().generate_embedding(last_user_message)
+        response = qdrant.query_points(
             collection_name=settings.qdrant_collection_repository_chunks,
-            query_text=last_user_message,
+            query=query_vector,
             limit=5,
-            query_filter={
-                "must": [{"key": "repository_id", "match": {"value": request.repository_id}}]
-            },
+            query_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="repository_id",
+                        match=models.MatchValue(value=request.repository_id),
+                    )
+                ]
+            ),
+            with_payload=True,
         )
-        for r in results:
+        for r in response.points:
             sources.append(r.payload.get("file_path", ""))
             context_text += (
                 f"\n\n# {r.payload.get('file_path')}\n{r.payload.get('content', '')[:500]}"

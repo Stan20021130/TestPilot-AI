@@ -64,7 +64,7 @@ async def test_get_repository_success(
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_health_check() -> None:
-    """Test the health check endpoint returns healthy status."""
+    """Health check reports per-dependency status and a matching status code."""
     # Health check doesn't need auth
     from httpx import ASGITransport, AsyncClient
 
@@ -72,6 +72,10 @@ async def test_health_check() -> None:
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         response = await c.get("/health")
-        assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "healthy"
+
+        # The verdict depends on which dependencies are reachable in this
+        # environment; the contract is that code and status agree.
+        assert data["status"] in {"healthy", "degraded"}
+        assert set(data["services"]) == {"postgres", "redis", "qdrant"}
+        assert response.status_code == (200 if data["status"] == "healthy" else 503)

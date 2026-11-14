@@ -3,15 +3,16 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import func, select
 
-from app.agents.test_discovery_agent import _discover_test_files
 from app.api.deps import CurrentUser, DBSession
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.models.dependency_graph import DependencyEdge
 from app.models.generated_test import GeneratedTest
 from app.models.repository import Repository
 from app.models.test_run import TestRun
 from app.schemas.common import APIResponse, PaginatedResponse, TaskResponse
 from app.schemas.test import (
+    DiscoveredTest,
     GeneratedTestResponse,
     TestDiscoverRequest,
     TestDiscoverResponse,
@@ -19,6 +20,7 @@ from app.schemas.test import (
     TestRunRequest,
     TestRunResponse,
 )
+from app.services.test_discovery import TestDiscovery
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -44,33 +46,37 @@ async def discover_tests(
         raise HTTPException(status_code=404, detail="Repository not found")
 
     repo_path = settings.repo_storage_path / request.repository_id
-    test_files = _discover_test_files(Path(repo_path))
 
-    frameworks = list({tf["framework"] for tf in test_files})
-    total_tests = sum(tf["test_count"] for tf in test_files)
-    uncovered: list[str] = []
+    # Coverage gaps require the persisted dependency graph: a source file is
+    # only "covered" when an existing test imports it (or matches its name).
+    edges = (
+        (
+            await db.execute(
+                select(DependencyEdge).where(DependencyEdge.repository_id == request.repository_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    edge_records = [
+        {
+            "source_node": edge.source_node,
+            "target_node": edge.target_node,
+            "edge_type": edge.edge_type,
+        }
+        for edge in edges
+    ]
+
+    report = TestDiscovery(Path(repo_path)).discover_with_coverage(edge_records=edge_records)
 
     return APIResponse(
         data=TestDiscoverResponse(
-            total_test_files=len(test_files),
-            total_tests=total_tests,
-            frameworks_detected=frameworks,
-            test_files=[
-                type(
-                    "DiscoveredTest",
-                    (),
-                    {
-                        "file_path": tf["path"],
-                        "framework": tf["framework"],
-                        "test_count": tf["test_count"],
-                        "test_names": tf["test_names"],
-                        "covers_modules": tf["covers_modules"],
-                    },
-                )()
-                for tf in test_files
-            ],
-            uncovered_modules=uncovered,
-            coverage_gaps=uncovered,
+            total_test_files=report["total_test_files"],
+            total_tests=report["total_tests"],
+            frameworks_detected=report["frameworks_detected"],
+            test_files=[DiscoveredTest(**item) for item in report["test_files"]],
+            uncovered_modules=report["uncovered_modules"],
+            coverage_gaps=report["coverage_gaps"],
         )
     )
 

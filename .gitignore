@@ -53,6 +53,20 @@ Thumbs.db
 
 # Repos (cloned)
 /tmp/repos/
+test_repos/
+_wt_*
+
+# Logs & Scratch
+logs/
+*.log
+backend/logs/
+backend/scratch_*.py
+scratch/
+
+# Caches
+.ruff_cache/
+backend/.ruff_cache/
+backend/.pytest_cache/
 
 # Secrets
 *.pem
