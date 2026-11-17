@@ -1,5 +1,7 @@
 # TestPilot AI
 
+**English** | [简体中文](README.zh-CN.md)
+
 [![CI](https://github.com/Stan20021130/TestPilot-AI/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Stan20021130/TestPilot-AI/actions/workflows/ci.yml)
 [![CD](https://github.com/Stan20021130/TestPilot-AI/actions/workflows/cd.yml/badge.svg?branch=main)](https://github.com/Stan20021130/TestPilot-AI/actions/workflows/cd.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
