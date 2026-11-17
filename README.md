@@ -1,256 +1,187 @@
 # TestPilot AI
 
-[![CD Build Status](https://github.com/Shikhaar/TestPilot-AI/actions/workflows/cd.yml/badge.svg?branch=main)](https://github.com/Shikhaar/TestPilot-AI/actions/workflows/cd.yml)
-[![CI Check Status](https://github.com/Shikhaar/TestPilot-AI/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Shikhaar/TestPilot-AI/actions/workflows/ci.yml)
+[![CI](https://github.com/Stan20021130/TestPilot-AI/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Stan20021130/TestPilot-AI/actions/workflows/ci.yml)
+[![CD](https://github.com/Stan20021130/TestPilot-AI/actions/workflows/cd.yml/badge.svg?branch=main)](https://github.com/Stan20021130/TestPilot-AI/actions/workflows/cd.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Shikhaar/TestPilot-AI/pulls)
 
-**TestPilot AI** is an autonomous regression testing platform that analyzes code changes, maps their dependency impact, retrieves relevant code context, generates tests, executes them in isolated environments, diagnoses failures, and creates pull requests — end to end, without manual intervention.
+TestPilot AI is a regression-testing and code-intelligence platform. It indexes repositories, analyzes pull request changes and their dependencies, retrieves relevant context, and uses an LLM to generate tests and reviews. A LangGraph pipeline coordinates analysis; a separate verification engine runs and repairs generated tests and can propose source patches for human review.
 
-**One-command setup:** `docker compose up -d`
+The project is under active development. The current verification runner targets Python and pytest, and some integrations and security boundaries require further work; see [Current limitations](#current-limitations).
 
----
+![TestPilot AI dashboard](docs/images/dashboard.png)
 
-## Key Capabilities
+## Capabilities
 
-- AST-based change and dependency analysis (Tree-sitter)
-- 3-layer hybrid codebase RAG (dense vectors + keyword + disk scan)
-- Stateful multi-agent test generation (11 LangGraph agents + a contracts-first verify engine)
-- Sandboxed test execution (PyTest, Jest, JUnit, Go Test)
-- Selective regression execution (only tests covering the changed modules)
-- Automated failure diagnosis with root-cause reporting
-- Multi-VCS support (GitHub, Bitbucket, GitLab, Azure DevOps)
-- 4-category EvalOps telemetry (Pass@1/N, repair rate, token cost)
-- GitHub PR automation with structured review comments
+- **Code and impact analysis:** Tree-sitter parsing, changed-symbol and contract extraction, dependency traversal, and risk ranking.
+- **Context retrieval:** Qdrant vector search, database keyword search, and repository file scanning.
+- **Test generation and verification:** LLM-generated tests, selected existing tests, bounded repair rounds, and Python mutation probes.
+- **Pull request review:** Persisted analysis, warnings, verification outcomes, and a draft review. An authenticated API endpoint can post a pending review to GitHub.
+- **Repository integrations:** Provider adapters for GitHub, GitLab, Bitbucket, and Azure DevOps, plus generic Git operations. The analysis pipeline still has GitHub-specific paths.
+- **Operations:** Celery workers, optional persistent checkpoints, Prometheus, Grafana, OpenTelemetry, and Flower.
 
----
+**Stack:** Next.js 16 and React 19; Python 3.12, FastAPI, LangGraph, and LiteLLM; PostgreSQL, Redis, and Qdrant.
 
-## Why TestPilot?
-
-Traditional testing requires developers to manually identify affected areas, write tests for every change, and interpret failure output. This is slow, inconsistent, and scales poorly across large codebases.
-
-TestPilot closes this loop by combining static code analysis, dependency graphs, semantic retrieval, and LLM agents into a single automated pipeline. The result is regression coverage that runs on every change, not just when someone has time to write tests.
-
----
-
-## Dashboard
-
-![TestPilot AI Dashboard](docs/images/dashboard.png)
-
-> Automated regression testing, vector AST indexing, and risk impact analysis dashboard showing repository health metrics, live AI agent telemetry, and quality token analytics.
-
----
-
-## How It Works
-
-```
-Developer opens PR or pushes a commit
-           |
-           v
-  Analyze changed files with Tree-sitter AST
-           |
-           v
-  Map upstream/downstream dependency graph
-           |
-           v
-  Calculate regression blast radius
-           |
-           v
-  Retrieve relevant code context via hybrid RAG
-           |
-           v
-  Generate unit tests matching repo style (LLM)
-           |
-           v
-  Execute tests in isolated sandbox environment
-           |
-           v
-  Diagnose failures, generate root-cause report
-           |
-           v
-  Post structured review comment + open PR
-```
-
----
-
-## Key Engineering Decisions
-
-**Why Tree-sitter?**
-Deterministic, language-agnostic AST parsing. Change analysis is based on actual syntax structure rather than LLM interpretation, which keeps the impact graph reliable and auditable.
-
-**Why LangGraph?**
-Stateful orchestration with conditional branching, retries, and failure recovery. Each agent node is independently testable and observable, making the pipeline debuggable rather than a black box.
-
-**Why separate phases rather than one prompt?**
-Each phase — planning, diff parsing, dependency traversal, retrieval, generation, verification — has distinct inputs, outputs, and failure modes. Separating them makes the system easier to observe, retry selectively, and extend.
-
-**Why Qdrant?**
-Dense vector retrieval over repository code with 384-dimensional embeddings. Combined with PostgreSQL keyword search and a disk scanner, this gives three independent retrieval strategies that complement each other.
-
-**Why Celery + Redis?**
-Test generation and sandboxed execution are expensive and long-running. Moving them out of the synchronous API path keeps the backend responsive and allows the frontend to stream real-time progress updates.
-
-**Why sandboxed execution?**
-Generated tests are untrusted code. Each run executes in its own scratch directory with run-scoped file names, a scrubbed environment (no LLM keys, database URLs or VCS tokens), POSIX resource limits, and optionally a network-isolated container (`SANDBOX_MODE=docker`). Isolation is a first-class part of the verify engine's runner, not a side effect of running a subprocess.
-
----
-
-## System Architecture
-
-```
-              Next.js 16 Frontend
-                      |
-                 FastAPI Backend
-                /     |      \
-        LangGraph   Qdrant   Celery + Redis
-         Agents      RAG     Async Workers
-            |
-       Test Sandbox
-    (PyTest / Jest / JUnit)
-```
-
-Full component topology with database and telemetry layers is documented in [System Architecture](docs/architecture.md).
+## How it works
 
 ```mermaid
-graph TD
-    Client[Next.js 16 Frontend] -->|REST / WebSockets| FastAPI[FastAPI Backend]
-
-    FastAPI -->|VCS Layer| VCS[GitHub · Bitbucket · GitLab · Azure DevOps]
-    FastAPI -->|Async Tasks| Redis[Redis Broker]
-    Redis -->|Dispatch| Celery[Celery Worker]
-
-    FastAPI -->|Query/Write| PG[(PostgreSQL)]
-    Celery -->|Query/Write| PG
-
-    FastAPI -->|3-Layer Search| Qdrant[(Qdrant Vector DB)]
-    Celery -->|Upsert Chunks| Qdrant
-
-    FastAPI -->|Telemetry| EvalOps[EvalOps Collector]
-
-    Celery -->|Execute| LangGraph[LangGraph Agent Engine]
-    LangGraph -->|Sandbox| Sandbox[Test Runner]
+flowchart LR
+    PR["Pull request"] --> Planner["Planner"]
+    Planner --> Diff["Diff and dependency analysis"]
+    Diff --> Impact["Impact analysis"]
+    Diff --> Search["Code search"]
+    Diff --> Discovery["Test discovery"]
+    Impact --> Rank["Risk ranking and context plan"]
+    Search --> Rank
+    Discovery --> Rank
+    Rank --> Generator["Test generation"]
+    Generator -->|Eligible| Verify["Verification engine"]
+    Generator -->|Skip verification| Review
+    Verify --> Review["Review and persisted results"]
+    Review --> Docs["Documentation suggestions"]
 ```
 
----
+The context subgraph runs impact analysis, search, and test discovery in parallel. It may decline generation if the available context is insufficient. When the PR head can be fetched, analysis uses a separate Git worktree; otherwise it falls back to the indexed checkout and records a warning.
 
-## The 11 LangGraph Agents
-
-The agents are separated by responsibility to keep planning, static analysis, retrieval, generation, review and documentation independently testable and observable.
-
-| # | Agent | Responsibility |
-| :--- | :--- | :--- |
-| 1 | **Planner** | Validates pipeline requests and normalizes execution state |
-| 2 | **Diff** | Parses Git diffs, maps changed line ranges to Tree-sitter AST nodes, and extracts symbol contracts |
-| 3 | **Dependency** | Queries the static import graph to build upstream/downstream call graph |
-| 4 | **Impact** | Traverses the graph to calculate layered regression blast radius |
-| 5 | **Search** | Retrieves globally ranked code snippets from symbol-level vector chunks |
-| 6 | **Test Discovery** | Indexes existing tests, resolves test-to-source coverage, and detects framework config |
-| 7 | **Risk Ranker** | Fuses blast radius, coverage and test history into ranked test targets |
-| 8 | **Context Controller** | Scores context sufficiency, retries retrieval impact-aware, and can decline generation |
-| 9 | **Test Generator** | Synthesizes unit tests from contracts, ranked targets and repository style via LLM |
-| 10 | **Review** | Aggregates risk metrics, context health, repair and mutation results into PR review comments |
-| 11 | **Documentation** | Detects API documentation drift and generates spec updates |
-
-The verify phase is **not** an agent graph. `app/verify/` is a contracts-first engine with a deterministic controller and four tools:
-
-| Tool | Responsibility |
-| :--- | :--- |
-| `execute` | Runs the selected tests in the sandbox and parses JUnit XML |
-| `repair_tests` | Repairs generated tests only (source patches are proposals, never applied) |
-| `propose_source_patch` | Produces a source patch for review |
-| `probe_mutations` | Injects AST mutants and measures whether the tests kill them |
-
----
-
-## Engineering Metrics
-
-| Metric | Value |
-| :--- | :--- |
-| LangGraph agent nodes | 11 |
-| Code search layers | 3 (dense vector · keyword · disk scan) |
-| EvalOps telemetry categories | 4 (Pass@1/N · repair rate · token cost · latency) |
-| VCS providers supported | 5 (GitHub · Bitbucket · GitLab · Azure DevOps · PAT) |
-| Embedding dimensions | 384-dim dense vectors (Sentence-Transformers) |
-| Test frameworks supported | PyTest · Jest/Vitest · JUnit · Go Test |
-
----
-
-## Empirical Benchmark: 100 Real GitHub Revert PRs
-
-To validate TestPilot AI against real-world production failures, we evaluated the platform across **100 real historical PRs** that were merged and subsequently **reverted in production** across 6 core open-source repositories (`click`, `marshmallow`, `pluggy`, `requests`, `cachetools`, `iniconfig`).
-
-### Benchmark Highlights (Zero-Test-Vacuum Scenario)
-- **76.0% (76/100) Live Adversarial Defect Intercept**: Synthesized standalone zero-leakage pytest suites from scratch that reproduced the exact regression in physical sandboxes.
-- **13.0% (13/100) AST Semantic Fast-Path**: Safely bypassed non-behavioral documentation and formatting commits in `< 1ms` with 0 Token cost.
-- **9.0% (9/100) Static Contract Guards**: Intercepted `.pyi` / `@overload` type drift and falsy control flow traps before execution.
-- **98.0% (98/100) Combined Safety Gate Coverage**: Only 2 residual escapes across 100 real incident PRs.
-- **Execution Speed**: 3-concurrency physical Git Worktree isolation completed all 100 PRs in **581.08s (~9.6 mins)**.
-
-Detailed evaluation reports and data:
-- [100 PR Live LLM 0-to-1 Adversarial Benchmark](docs/benchmarks/eval_100_live_llm_zero_to_one.md)
-- [100 PR Multi-Gate Multi-Repo Benchmark Report](docs/benchmarks/eval_100_real_github_reverts_optimized.md)
-- [Zero-to-One Synthesis Case Studies (RPR-097 & RPR-071)](docs/benchmarks/eval_live_llm_zero_to_one_report.md)
-
----
-
-## Tech Stack
-
-**AI & Intelligence**
-LangGraph · Tree-sitter · LiteLLM · Instructor · Sentence-Transformers · Qdrant RAG
-
-**Backend**
-Python 3.12 · FastAPI · Async SQLAlchemy 2 · Alembic · Pydantic v2 · Poetry
-
-**Async Infrastructure**
-Celery 5 · Redis 7 · Subprocess sandboxing
-
-**Observability**
-Prometheus · Grafana · OpenTelemetry · Celery Flower · EvalOps
-
-**Frontend**
-Next.js 16 · React 19 · TailwindCSS · CSS Modules
-
-**Storage**
-PostgreSQL 16 · Qdrant Vector DB
-
----
+Verification is a contracts-first engine with a deterministic controller. Its tools execute tests, repair generated tests, propose source patches, and probe mutations. Source patches remain proposals; they are not applied automatically. The documentation node currently produces basic suggestions rather than updating documentation.
 
 ## Quickstart
 
+### Prerequisites
+
+- Docker Engine or Docker Desktop with Compose, and Git.
+- An accessible LLM endpoint and credentials for test generation.
+- GitHub OAuth credentials to sign in through the dashboard. GitHub App credentials and a public webhook URL are needed for App/webhook integration.
+
+The first image build and the first download of the local embedding model can take time. The example configuration uses development secrets; replace them before exposing any service.
+
+### 1. Prepare configuration
+
+From a new checkout, using a POSIX shell:
+
 ```bash
-git clone https://github.com/Shikhaar/TestPilot-AI.git
+git clone https://github.com/Stan20021130/TestPilot-AI.git
 cd TestPilot-AI
 cp .env.example .env
-docker compose up -d
-docker compose exec backend alembic upgrade head
+touch backend/private-key.pem
 ```
 
-Open `http://localhost:3000`.
+In PowerShell, use `Copy-Item .env.example .env` and, if needed, `New-Item backend/private-key.pem -ItemType File` instead of the last two commands. Do not overwrite an existing `.env` or private key. The empty key file only satisfies the Compose bind mount; replace it with your GitHub App private key when using App authentication.
 
-See the [Developer Setup Guide](docs/setup.md) for local development, environment variables, and service endpoints.
+Edit `.env` for your setup. For example, when using OpenAI's API:
 
----
+```dotenv
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_API_BASE=https://api.openai.com/v1
+LITELLM_DEFAULT_MODEL=gpt-4o-mini
 
-## Engineering & System Documentation
+# Required for GitHub OAuth login
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
 
-| Document | Description | Key Concepts |
-| :--- | :--- | :--- |
-| [**System Architecture**](docs/architecture.md) | Decoupled platform topology & component interactions | Next.js 16, FastAPI, PostgreSQL, Qdrant, Celery |
-| [**Project Overview**](docs/PROJECT_OVERVIEW.md) | Comprehensive platform overview & system capabilities | End-to-end PR review pipeline & AST impact mapping |
-| [**Multi-VCS Provider Architecture**](docs/features/VCS_PROVIDERS.md) | Multi-VCS integration & authentication model | GitHub, Bitbucket, GitLab, Azure DevOps, PAT tokens |
-| [**EvalOps Telemetry Engine**](docs/features/EVALOPS_AND_TELEMETRY.md) | Quality benchmarks, repair metrics & token analytics | Pass@1/Pass@N, repair success rate, token cost |
-| [**3-Layer Code Search Engine**](docs/features/CODE_SEARCH_AND_INDEXING.md) | Parallel multi-layer code retrieval architecture | Dense vectors, PostgreSQL ILIKE, disk scanner |
-| [**Test Generation & Verification**](docs/features/TEST_GENERATION_AND_VERIFICATION.md) | Multi-agent test synthesis & self-healing verification | Exit codes, pytest/jest JSON reports, self-healing |
-| [**GitHub OAuth & Session Security**](docs/features/GITHUB_OAUTH_AND_SECURITY.md) | Enterprise authentication & security model | GitHub OAuth 2.0, JWT, zero password storage |
-| [**Monitoring & Telemetry**](docs/features/MONITORING_AND_TELEMETRY.md) | Queue monitoring & graceful fallback UI | Celery latency, Prometheus metrics, fallback banners |
-| [**Developer Setup Guide**](docs/setup.md) | Containerized and local development guide | Docker Compose, env vars, alembic migrations |
-| [**Implementation Roadmap**](docs/plans/01_INITIAL_IMPLEMENTATION_PLAN.md) | Chronological development roadmap & milestones | Phase-by-phase implementation logs |
-| [**Release v1.1.0 Record**](docs/plans/05_RELEASE_V1_1_MULTIVCS_AND_PARALLEL_LANGGRAPH.md) | Release v1.1.0 features & test results | Multi-VCS, secured webhooks, parallel LangGraph |
-| [**Version 2.0.0 Roadmap**](docs/plans/06_VERSION2_ROADMAP.md) | v2.0 enterprise roadmap & milestones | Docker sandbox, auto-remediation, RBAC |
-| [**Context Agents Optimization Report**](docs/plans/07_CONTEXT_AGENTS_OPTIMIZATION_REPORT.md) | Audit & remediation of the impact/search/discovery context pipeline | Retrieval correctness, layered blast radius, coverage mapping, selective execution |
+# Required for GitHub App authentication and webhook verification
+GITHUB_APP_ID=your-github-app-id
+GITHUB_APP_PRIVATE_KEY_PATH=/app/private-key.pem
+GITHUB_WEBHOOK_SECRET=your-webhook-secret
+GITHUB_APP_NAME=your-github-app-slug
+```
 
----
+The configuration default for `OPENAI_API_BASE` points to a local endpoint inside the backend container; setting an API key alone does not change it. For another provider, configure the model, endpoint, and credentials for that provider. `GITHUB_TOKEN` can be set for fetching PR refs from private repositories. Keep credentials and private keys out of version control.
+
+The base Compose file mounts `backend/private-key.pem` at `/app/private-key.pem`, while `.env.example` uses a different path. Set `GITHUB_APP_PRIVATE_KEY_PATH` as shown when using that mount.
+
+### 2. Start services and migrate the database
+
+```bash
+docker compose -f docker-compose.yml up -d --build
+docker compose -f docker-compose.yml exec backend alembic upgrade head
+docker compose -f docker-compose.yml ps
+```
+
+These commands explicitly select the base Compose file: the automatically loaded development override contains machine-specific private-key mounts. Check startup logs with `docker compose -f docker-compose.yml logs -f backend celery-worker`. Stop the stack with `docker compose -f docker-compose.yml down`; named volumes are retained.
+
+| Service | Local address |
+| :--- | :--- |
+| Dashboard | [http://localhost:3000](http://localhost:3000) |
+| API documentation | [http://localhost:8000/docs](http://localhost:8000/docs) |
+| API health | [http://localhost:8000/health](http://localhost:8000/health) |
+| Flower | [http://localhost:5555](http://localhost:5555) |
+| Grafana | [http://localhost:3001](http://localhost:3001) |
+| Prometheus | [http://localhost:9090](http://localhost:9090) |
+| Qdrant dashboard | [http://localhost:6333/dashboard](http://localhost:6333/dashboard) |
+
+After signing in, connect and index a repository. PR analysis can be requested through the API for an existing PR record; its response and warnings should be checked in the dashboard or API. The frontend may display labeled sample data when backend data is unavailable.
+
+For GitHub OAuth, register `http://localhost:3000/auth/callback` as the local callback URL. For webhook delivery, configure a reachable URL such as `https://your-host/api/v1/webhooks/github` and use the same webhook secret in GitHub and `.env`. Review the integration limitations below before relying on webhook-triggered analysis.
+
+## Configuration
+
+| Setting | Purpose |
+| :--- | :--- |
+| `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL` | Connections used by the backend; Compose service hostnames differ from host development. |
+| `OPENAI_API_KEY`, `OPENAI_API_BASE`, `LITELLM_DEFAULT_MODEL` | LLM credentials, endpoint, and model used for generation and review. |
+| `USE_LOCAL_EMBEDDINGS`, `SENTENCE_TRANSFORMER_MODEL` | Select local embeddings and the Sentence Transformers model. If loading fails, the implementation falls back to hash vectors. |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub OAuth login. App integration additionally needs `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY_PATH`, and `GITHUB_WEBHOOK_SECRET`. |
+| `SANDBOX_MODE` | `subprocess` by default; an experimental `docker` mode also exists. See the limitations below. |
+| `MAX_VERIFY_ROUNDS`, `VERIFY_MAX_STEPS` | Bounds on verification rounds and controller steps. |
+| `CHECKPOINT_BACKEND` | `memory`, `postgres`, or `off`. The base Compose worker explicitly overrides this to `postgres`. |
+
+See [.env.example](.env.example) and [backend configuration](backend/app/core/config.py) for the remaining settings. If changing database or Redis passwords, update both the service credentials and their connection URLs. `NEXT_PUBLIC_API_URL` is embedded during the Next.js build; the current frontend Dockerfile does not pass the Compose `env_file` into that build, so changing it requires adjusting the build configuration and rebuilding the image.
+
+## Development and checks
+
+For native development, use Python 3.12 and Poetry for the backend, and Node.js 20.9+ with npm for the frontend. PostgreSQL, Redis, and Qdrant can be run with Compose; host-run processes need `localhost` connection strings instead of Compose hostnames.
+
+```bash
+# Backend, from the repository root
+cd backend
+poetry install --with dev
+poetry run pytest tests/ -v
+```
+
+```bash
+# Frontend, from the repository root
+cd frontend
+npm ci
+npm run lint
+npm run build
+```
+
+The Poetry-based Makefile test and lint targets execute inside the backend container, but its image installs dependencies with pip and does not include Poetry or the development tools. Use the native commands above or add those tools to a development image. See the [developer setup guide](docs/setup.md) for more background; prefer the prerequisites and Compose commands above where older instructions differ.
+
+## Current limitations
+
+- **Verification:** The current verification adapter runs pytest and parses JUnit XML. Framework detection and generation schemas mention other languages, but that does not make Jest, JUnit, or Go Test supported by this verification runner.
+- **Execution isolation:** The default subprocess mode scrubs environment variables and applies resource limits on POSIX, but it is not a security boundary and does not isolate network or filesystem access. Docker mode requires a Docker CLI and daemon, neither of which is provided to the worker by the default Compose setup; its workspace and dependencies require additional configuration.
+- **PR automation:** Analysis stores a draft review; posting it uses the explicit GitHub review endpoint. Provider PR-creation methods exist, but the main pipeline does not automatically create a PR. The standalone test generation and execution endpoints currently return status messages rather than starting independent jobs.
+- **Webhooks:** The receiver dispatches provider-derived IDs without resolving or creating the corresponding internal repository and PR records, so a `202` response does not establish that analysis succeeded. Azure DevOps webhook verification currently accepts requests without validating the secret, and the Bitbucket adapter accepts a missing signature; harden these paths before exposing them to untrusted traffic.
+- **Checkpoints:** PostgreSQL checkpoints can resume interrupted work when the associated worktree still exists; otherwise the analysis starts again.
+
+## Benchmarks
+
+The repository includes a 100-case dataset and experimental evaluation reports:
+
+- [Live LLM generation report](docs/benchmarks/eval_100_live_llm_zero_to_one.md) and its [script](backend/scripts/eval_100_live_llm_zero_to_one_3concurrent.py)
+- [Multi-gate report](docs/benchmarks/eval_100_real_github_reverts_optimized.md), [recorded results](docs/benchmarks/eval_100_real_github_reverts_optimized.json), and [script](backend/scripts/eval_100_real_github_reverts_optimized.py)
+- [Generation case studies](docs/benchmarks/eval_live_llm_zero_to_one_report.md)
+
+Treat the reported results as experimental, not validated defect-recall estimates: the live-generation script counts runner errors as catches and overrides the classification of specific cases, while the multi-gate script uses a hard-coded baseline. The benchmark scripts also require local checkouts under `test_repos/`; the live script expects a local LLM endpoint.
+
+## Project layout
+
+```text
+backend/app/agents/       LangGraph pipeline and context orchestration
+backend/app/verify/       Verification controller, contracts, tools, and runner
+backend/app/api/          FastAPI routes and WebSocket endpoints
+backend/app/services/     Indexing, retrieval, VCS, and execution services
+backend/app/tasks/        Celery tasks
+backend/tests/            Backend tests
+frontend/                 Next.js dashboard
+infra/                    Nginx, PostgreSQL, Prometheus, Grafana, and OTEL config
+docs/                     Architecture, feature notes, and benchmark reports
+```
+
+Further reading: [system architecture](docs/architecture.md), [code search and indexing](docs/features/CODE_SEARCH_AND_INDEXING.md), [test generation and verification](docs/features/TEST_GENERATION_AND_VERIFICATION.md), and [provider architecture](docs/features/VCS_PROVIDERS.md). Some feature notes and plans describe earlier implementations; use the code and the limitations above for current behavior.
 
 ## License
 
-Distributed under the **MIT License**. See `LICENSE` for details.
+[MIT](LICENSE).
